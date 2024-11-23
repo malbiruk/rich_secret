@@ -693,7 +693,7 @@ def trends_plot(aggregate_by, show_fixed):
     fig.update_layout(template="one_light",
                       plot_bgcolor="#fafafa",
                       dragmode="pan",
-                      margin={"l": 110, "r": 0, "t": 30, "b": 20},
+                      margin={"l": 110, "r": 0, "t": 30, "b": 50},
                       height=700,
                       xaxis_showticklabels=True,
                       xaxis2_showticklabels=True,
