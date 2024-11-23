@@ -327,10 +327,12 @@ def create_plot_data_actual_vs_planned(
     plan_data = plan_data[plan_data["type"] == data_type].copy()
     actual_data = st.session_state.modified_budget[data_type].copy()
     if data_type == "expenses" and not show_fixed:
-        actual_data["category"] = actual_data["category"].cat.remove_categories("Fixed")
-        plan_data["category"] = plan_data["category"].cat.remove_categories("Fixed")
+        if "Fixed" in actual_data["category"].cat.categories:
+            actual_data["category"] = actual_data["category"].cat.remove_categories("Fixed")
+        if "Fixed" in plan_data["category"].cat.categories:
+            plan_data["category"] = plan_data["category"].cat.remove_categories("Fixed")
     planned_sums = (
-        plan_data
+        plan_data[plan_data["type"] == data_type]
         .groupby("category", observed=True)["converted_amount"]
         .sum()
         .reset_index(name="planned_amount"))
@@ -339,7 +341,9 @@ def create_plot_data_actual_vs_planned(
         .groupby("category", observed=True)["converted_amount"]
         .sum()
         .reset_index(name="actual_amount"))
-    plot_data = planned_sums.merge(actual_sums, on="category", how="right").fillna(0)
+    plot_data = planned_sums.merge(actual_sums, on="category", how="outer")
+    plot_data["actual_amount"] = plot_data["actual_amount"].fillna(0)
+    plot_data["planned_amount"] = plot_data["planned_amount"].fillna(0)
     return plot_data.sort_values("actual_amount")
 
 
@@ -439,7 +443,7 @@ def actual_vs_planned_plot(show_fixed):
 
 def add_expenses_ridgeline(show_fixed, aggregate_by, start_date, end_date, fig, row, col):
     expenses_data = st.session_state.modified_budget["expenses"].copy()
-    if not show_fixed:
+    if not show_fixed and "Fixed" in expenses_data["category"].cat.categories:
         expenses_data["category"] = expenses_data["category"].cat.remove_categories("Fixed")
     category_sums = (expenses_data.groupby("category", observed=True)["converted_amount"].sum())
     sorted_categories = category_sums.sort_values().index
@@ -454,6 +458,8 @@ def add_expenses_ridgeline(show_fixed, aggregate_by, start_date, end_date, fig, 
               edgecolor="dimgray",
               hover_stats=False,
               points_size=5,
+              jitter_strength_x=1,
+              jitter_strength_y=1,
               line_width=1.5,
               hoverdata=["name", "amount", "currency"],
               bin_width=AGGREGATE_BY_TO_FREQ[aggregate_by],
@@ -511,6 +517,7 @@ def add_balance_lineplot(aggregate_by, fig, row, col):
     daily_balance_shifted = daily_balance.shift(1)
     shifted_data["balance"] = shifted_data["date"].map(daily_balance_shifted)
     shifted_data.loc[0, "balance"] = balance_data.loc[0, "balance"]
+    shifted_data["balance"] = shifted_data["balance"].ffill()
 
     for data_type, color in zip(["Expense", "Income", "Savings"][::-1],
                                 ["lightsalmon", "steelblue", "plum"][::-1]):
@@ -641,7 +648,8 @@ def add_savings_stacked_area(aggregate_by, fig, row, col):
                 y=(plot_df[column] if st.session_state.target_currency == "BTC"
                    else round(plot_df[column], 2)),
                 name=column,
-                mode="none",
+                mode="none" if len(plot_df) > 1 else "markers",
+                marker_color=pio.templates[pio.templates.default].layout.colorway[c],
                 fillcolor=f"rgba{
                     (*color_to_rgb(pio.templates[pio.templates.default].layout.colorway[c]), 0.5)}",
                 line_shape="spline",
@@ -697,7 +705,7 @@ def trends_plot(aggregate_by, show_fixed):
                       xaxis3_showgrid=True,
                       yaxis3_showgrid=True,
                       yaxis3_title=st.session_state.target_currency,
-                      showlegend=True,
+                      showlegend=False,
                       legend=dict(x=0.017,
                                   y=0.62,
                                   bgcolor="rgba(250, 250, 250, 0.8)",
