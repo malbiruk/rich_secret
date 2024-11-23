@@ -1,0 +1,7 @@
+plotly
+streamlit
+scipy
+pandas
+millify
+openpyxl
+webcolors
