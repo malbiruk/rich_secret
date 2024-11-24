@@ -395,7 +395,7 @@ def add_actual_vs_planned_subplot(fig, plot_data, row, col, *, swapped_colors=Fa
             name="Planned",
             showlegend=False,
             opacity=opacity,
-            marker=dict(color="lightsalmon", size=marker_size)),
+            marker=dict(color="darkgray", size=marker_size)),
         row=row, col=col)
 
     # draw actual scatter
@@ -415,7 +415,7 @@ def add_actual_vs_planned_subplot(fig, plot_data, row, col, *, swapped_colors=Fa
 
 def actual_vs_planned_plot(show_fixed):
     st.markdown("<h5><span style='color:lightseagreen'>Actual</span>"
-                " vs <span style='color:lightsalmon'>Planned</span></h5>",
+                " vs <span style='color:darkgray'>Planned</span></h5>",
                 unsafe_allow_html=True)
 
     plot_data = {
