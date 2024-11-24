@@ -132,7 +132,7 @@ def initialize_session_state():
     if "target_currency" not in st.session_state:
         st.session_state.target_currency = None
     if "exchange_rates" not in st.session_state:
-        st.session_state.exchange_rates = get_exchange_rates()
+        st.session_state.exchange_rates = None
 
 
 def customize_page_appearance() -> None:
@@ -276,7 +276,9 @@ def stats(aggregate_by, start_date, end_date):
         "can_spend_weekly": this_period_stats["can_spend_weekly"] - prev_period_stats["can_spend_weekly"],
     }
 
-    precision = 5 if st.session_state.target_currency == "BTC" else 2
+    precision = (5 if st.session_state.target_currency == "BTC"
+                 else 0 if st.session_state.target_currency == "RUB"
+                 else 2)
     metric_names = ["Balance", "Total Income", "Total Expenses",
                     "Total Savings", "Weekly Spend / Allowance"]
     for col, metric_name, this_period_value, delta in zip(
@@ -347,14 +349,18 @@ def create_plot_data_actual_vs_planned(
     return plot_data.sort_values("actual_amount")
 
 
-def add_actual_vs_planned_subplot(fig, plot_data, row, col, swapped_colors=False,
+def add_actual_vs_planned_subplot(fig, plot_data, row, col, *, swapped_colors=False,
                                   opacity=1, marker_size=10, line_width=.5):
     # draw lines
     for _ind, df_row in plot_data.iterrows():
         if swapped_colors:
-            line_color = "#09ab3b" if df_row["actual_amount"] > df_row["planned_amount"] else "#ff2b2b"
+            line_color = ("#09ab3b"
+                          if df_row["actual_amount"] > df_row["planned_amount"]
+                          else "#ff2b2b")
         else:
-            line_color = "#ff2b2b" if df_row["actual_amount"] > df_row["planned_amount"] else "#09ab3b"
+            line_color = ("#ff2b2b"
+                          if df_row["actual_amount"] > df_row["planned_amount"]
+                          else "#09ab3b")
         fig.add_trace(
             go.Scatter(
                 x=[df_row["planned_amount"], df_row["actual_amount"]],
@@ -574,13 +580,18 @@ def add_balance_lineplot(aggregate_by, fig, row, col):
     return fig, all_data["date"].min(), all_data["date"].max()+pd.to_timedelta(freq)
 
 
-def add_savings_stacked_area(aggregate_by, fig, row, col):
+def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
     freq = AGGREGATE_BY_TO_FREQ[aggregate_by]
     savings = st.session_state.modified_budget["savings"].copy()
+    zeros_df = pd.DataFrame(
+        [{"date": start_date, "category": category,
+          "amount": 0, "converted_amount": 0}
+         for category in st.session_state.modified_budget["init"].loc[1:, "field"].unique()])
+    savings = pd.concat([zeros_df, savings])
     savings["converted_amount"] = savings.groupby(
         "category", observed=True)["converted_amount"].cumsum()
-    full_date_range = pd.date_range(start=savings["date"].min(),
-                                    end=savings["date"].max(), freq="1D")
+    full_date_range = pd.date_range(start=start_date,
+                                    end=end_date, freq="1D")
     savings = savings.set_index("date")
     plot_df_init = (savings  # noqa: PD010
                .pivot(columns="category", values="converted_amount")
@@ -606,18 +617,23 @@ def add_savings_stacked_area(aggregate_by, fig, row, col):
         if any(st.session_state.modified_budget["init"]["field"] == column):
             init_saving = st.session_state.modified_budget["init"].loc[
                 st.session_state.modified_budget["init"]["field"] == column,
-                "converted_amount"].to_numpy()[0]
-            plot_df_init[column] = plot_df_init[column] + init_saving
+                "converted_amount"].to_numpy()
+            for i in init_saving:
+                plot_df_init[column] = plot_df_init[column] + i
 
             init_saving = st.session_state.modified_budget["init"].loc[
                 st.session_state.modified_budget["init"]["field"] == column,
-                "amount"].to_numpy()[0]
-            true_amount[column] = true_amount[column] + init_saving
+                "amount"].to_numpy()
+            for i in init_saving:
+                true_amount[column] = true_amount[column] + i
 
             init_currency = st.session_state.modified_budget["init"].loc[
                 st.session_state.modified_budget["init"]["field"] == column,
-                "currency"].to_numpy()[0]
-            currency[column] = currency[column].fillna(init_currency)
+                "currency"].to_numpy()
+            for i in init_currency:
+                if i not in currency[column].cat.categories:
+                    currency[column] = currency[column].cat.add_categories(i)
+                currency[column] = currency[column].fillna(i)
 
     plot_df_init = plot_df_init.loc[:, plot_df_init.sum().sort_values(ascending=True).index]
     true_amount = true_amount.loc[:, plot_df_init.sum().sort_values(ascending=True).index]
@@ -692,7 +708,8 @@ def trends_plot(aggregate_by, show_fixed):
     fig, start_date, end_date = add_balance_lineplot(aggregate_by, fig, row=2, col=1)
     fig = add_expenses_ridgeline(show_fixed, aggregate_by, start_date, end_date,
                                  fig=fig, row=1, col=1)
-    fig = add_savings_stacked_area(aggregate_by, fig=fig, row=3, col=1)
+    fig = add_savings_stacked_area(aggregate_by, start_date, end_date,
+                                   fig=fig, row=3, col=1)
 
     fig.update_layout(template="one_light",
                       plot_bgcolor="#fafafa",
@@ -777,6 +794,8 @@ def main():
             st.error(f"Google Sheets document probably has restricted access. Got an error: {e}\n\n"
                      "Reload page and try again.")
             st.stop()
+
+        st.session_state.exchange_rates = get_exchange_rates()
         gmt_plus_4 = datetime.timezone(datetime.timedelta(hours=4))
         now_gmt4 = datetime.datetime.now(gmt_plus_4)
 
