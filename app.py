@@ -347,11 +347,14 @@ def create_plot_data_actual_vs_planned(
     return plot_data.sort_values("actual_amount")
 
 
-def add_actual_vs_planned_subplot(fig, plot_data, row, col,
+def add_actual_vs_planned_subplot(fig, plot_data, row, col, swapped_colors=False,
                                   opacity=1, marker_size=10, line_width=.5):
     # draw lines
     for _ind, df_row in plot_data.iterrows():
-        line_color = "#ff2b2b" if df_row["actual_amount"] > df_row["planned_amount"] else "#09ab3b"
+        if swapped_colors:
+            line_color = "#09ab3b" if df_row["actual_amount"] > df_row["planned_amount"] else "#ff2b2b"
+        else:
+            line_color = "#ff2b2b" if df_row["actual_amount"] > df_row["planned_amount"] else "#09ab3b"
         fig.add_trace(
             go.Scatter(
                 x=[df_row["planned_amount"], df_row["actual_amount"]],
@@ -424,8 +427,9 @@ def actual_vs_planned_plot(show_fixed):
                         subplot_titles=("Expenses", "Income", "Savings"))
 
     fig = add_actual_vs_planned_subplot(fig, plot_data["expenses"], row=1, col=1)
-    fig = add_actual_vs_planned_subplot(fig, plot_data["income"], row=1, col=2)
-    fig = add_actual_vs_planned_subplot(fig, plot_data["savings"], row=2, col=2)
+    fig = add_actual_vs_planned_subplot(fig, plot_data["income"], swapped_colors=True, row=1, col=2)
+    fig = add_actual_vs_planned_subplot(
+        fig, plot_data["savings"], swapped_colors=True, row=2, col=2)
 
     fig.update_layout(template="one_light",
                       plot_bgcolor="#fafafa",
