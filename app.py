@@ -150,6 +150,7 @@ def customize_page_appearance() -> None:
 
 def settings(budget_sheets, now_gmt4):
     col1, col2, _col4, col3 = st.columns([1, 1, .5, .5])
+    mode_not_selected = False
     mode = col1.pills(
         "Mode",
         ["Month", "Quarter", "Year", "Custom"],
@@ -158,7 +159,7 @@ def settings(budget_sheets, now_gmt4):
     )
     if mode is None:
         mode = "Month"
-        col1.caption('Showing "Month" mode.')
+        mode_not_selected = True
 
     with col2:
         if mode == "Month":
@@ -194,21 +195,24 @@ def settings(budget_sheets, now_gmt4):
 
     start_date = pd.to_datetime(start_date).floor("D")
     end_date = pd.to_datetime(end_date).floor("D")
-    col2.caption(f"<p style='text-align: center;'>Date range: {start_date.strftime('%d %b, %Y')}"
-                 f" to {end_date.strftime('%d %b, %Y')}</p>", unsafe_allow_html=True)
-
     currencies = (budget_sheets["categories"]
                   [budget_sheets["categories"]["type"] == "Currency"]
                   ["category"].unique())
     target_currency = col3.selectbox("Currency:", currencies, index=0)
 
-    col1, col2, col3, col4 = st.columns([.5, 1, 1, .5], vertical_alignment="bottom")
+    col1, col2, col3 = st.columns([.5, 2, .5])
     aggregate_by = col1.selectbox(
         "Aggregate trends by",
         ["1 day", "3 days", "7 days", "14 days", "30 days"],
         index=2 if mode == "Quarter" else 4 if mode == "Year" else 0)
     aggregate_by = aggregate_by.split(" ", 1)[0]+"D"
-    hide_fixed = col4.checkbox("Hide fixed expenses")
+    col2.caption(f"<p style='text-align: center;'>Date range: {start_date.strftime('%d %b, %Y')}"
+                 f" to {end_date.strftime('%d %b, %Y')}</p>", unsafe_allow_html=True)
+    hide_fixed = col3.checkbox("Hide fixed expenses")
+
+    if mode_not_selected:
+        col2.caption('<p style="text-align: center;">Showing "Month" mode.</p>',
+                     unsafe_allow_html=True)
 
     return target_currency, start_date, end_date, aggregate_by, mode, hide_fixed
 
