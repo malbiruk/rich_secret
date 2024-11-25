@@ -213,6 +213,10 @@ def settings(budget_sheets, now_gmt4):
     if mode_not_selected:
         col2.caption('<p style="text-align: center;">Showing "Month" mode.</p>',
                      unsafe_allow_html=True)
+    if mode == "Custom":
+        col2.caption("<p style='text-align: center;'>"
+                     'In "Custom" mode, planned data might be not accurate.'
+                     "</p>", unsafe_allow_html=True)
 
     return target_currency, start_date, end_date, aggregate_by, mode, hide_fixed
 
