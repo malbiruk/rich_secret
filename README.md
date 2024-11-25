@@ -11,9 +11,9 @@
 
 ### Setup
 1. **Google Sheets Integration**:
-   - Use the provided [Google Sheets Template](https://docs.google.com/spreadsheets/d/19wTUH2nv4bkI2fPUgGaLDiFV9tyY3N1j3hBoVx2zBsk).
-   - Make a copy of the template and populate it with your data.
+   - Make a copy of the provided [Google Sheets Template](https://docs.google.com/spreadsheets/d/19wTUH2nv4bkI2fPUgGaLDiFV9tyY3N1j3hBoVx2zBsk) and populate it with your data.
    - Ensure the sheet is shareable (`Anyone with the link can view`).
+   - Input the link to your sheet into the app.
 
 2. **Template Sheets Overview**:
    - **`monthly_plan`**: Plan your monthly expenses, income, and savings.
@@ -38,7 +38,7 @@
 3. **Plots (Powered by Plotly)**:
    - Dumbbell plots comparing planned vs actual amounts for expenses, income, and savings.
    - Aggregated time-series plots:
-     - **Ridgeline-like Plot**: Expense distribution by category.
+     - **Ridgeline-like Plot**: Expenses distribution by category.
      - **Balance Overview**: Lineplot of balance with lollipops showing changes to balance by income, expenses, and savings.
      - **Savings Overview**: Stacked area plot of savings by category.
 
