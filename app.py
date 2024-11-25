@@ -127,6 +127,8 @@ def initialize_session_state():
         st.session_state.target_currency = None
     if "exchange_rates" not in st.session_state:
         st.session_state.exchange_rates = None
+    if "mode_not_selected" not in st.session_state:
+        st.session_state.mode_not_selected = False
 
 
 def customize_page_appearance() -> None:
@@ -150,7 +152,7 @@ def customize_page_appearance() -> None:
 
 def settings(budget_sheets, now_gmt4):
     col1, col2, _col4, col3 = st.columns([1, 1, .5, .5])
-    mode_not_selected = False
+    st.session_state.mode_not_selected = False
     mode = col1.pills(
         "Mode",
         ["Month", "Quarter", "Year", "Custom"],
@@ -159,7 +161,7 @@ def settings(budget_sheets, now_gmt4):
     )
     if mode is None:
         mode = "Month"
-        mode_not_selected = True
+        st.session_state.mode_not_selected = True
 
     with col2:
         if mode == "Month":
@@ -189,8 +191,7 @@ def settings(budget_sheets, now_gmt4):
             end_date = datetime.date(selected_year, 12, 31)
         elif mode == "Custom":
             col_1, col_2 = st.columns(2)
-            start_date = col_1.date_input("Start date",
-                                          (now_gmt4.now() - datetime.timedelta(days=30)))
+            start_date = col_1.date_input("Start date")
             end_date = col_2.date_input("End date")
 
     start_date = pd.to_datetime(start_date).floor("D")
@@ -210,13 +211,19 @@ def settings(budget_sheets, now_gmt4):
                  f" to {end_date.strftime('%d %b, %Y')}</p>", unsafe_allow_html=True)
     hide_fixed = col3.checkbox("Hide fixed expenses")
 
-    if mode_not_selected:
+    if st.session_state.mode_not_selected:
         col2.caption('<p style="text-align: center;">Showing "Month" mode.</p>',
                      unsafe_allow_html=True)
     if mode == "Custom":
-        col2.caption("<p style='text-align: center;'>"
-                     'In "Custom" mode, planned data might be not accurate.'
-                     "</p>", unsafe_allow_html=True)
+        col2.caption(
+            "<p style='text-align: center;'>"
+            "Note: Planned data is accurate only for date ranges that align with full months<br>"
+            "(start at the beginning of a month and end at the end of a month)."
+            "</p>", unsafe_allow_html=True)
+
+    if start_date > end_date:
+        st.error("The start date cannot be later than the end date.")
+        st.stop()
 
     return target_currency, start_date, end_date, aggregate_by, mode, hide_fixed
 
@@ -377,6 +384,14 @@ def create_plot_data_actual_vs_planned(
 
 def add_actual_vs_planned_subplot(fig, plot_data, row, col, *, swapped_colors=False,
                                   opacity=1, marker_size=10, line_width=.5):
+    if plot_data.empty:
+        fig.add_annotation(
+            text="No data to show",
+            xref="x1" if row == 1 and col == 1 else "x2" if row == 1 and col == 2 else "x3",
+            yref="y1" if row == 1 and col == 1 else "y2" if row == 1 and col == 2 else "y3",
+            showarrow=False,
+            name="nodata")
+        return fig
     # draw lines
     for _ind, df_row in plot_data.iterrows():
         if swapped_colors:
@@ -458,8 +473,10 @@ def actual_vs_planned_plot(hide_fixed):
                         vertical_spacing=0.25,
                         subplot_titles=("Expenses", "Income", "Savings"))
 
-    fig = add_actual_vs_planned_subplot(fig, plot_data["expenses"], row=1, col=1)
-    fig = add_actual_vs_planned_subplot(fig, plot_data["income"], swapped_colors=True, row=1, col=2)
+    fig = add_actual_vs_planned_subplot(
+        fig, plot_data["expenses"], row=1, col=1)
+    fig = add_actual_vs_planned_subplot(
+        fig, plot_data["income"], swapped_colors=True, row=1, col=2)
     fig = add_actual_vs_planned_subplot(
         fig, plot_data["savings"], swapped_colors=True, row=2, col=2)
 
@@ -469,6 +486,7 @@ def actual_vs_planned_plot(hide_fixed):
                       margin={"l": 100, "r": 0, "t": 30, "b": 50},
                       )
     fig.update_annotations(font=dict(size=18), yshift=10)
+    fig.update_annotations(selector=dict(name="nodata"), font=dict(size=16))
     fig.update_xaxes(title=st.session_state.target_currency,
                      showline=False, showgrid=True, tickfont=dict(size=14))
     fig.update_xaxes(title=None, row=1, col=2)
@@ -483,6 +501,16 @@ def add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date, fig, 
         expenses_data["category"] = expenses_data["category"].cat.remove_categories("Fixed")
     category_sums = (expenses_data.groupby("category", observed=True)["converted_amount"].sum())
     sorted_categories = category_sums.sort_values().index
+
+    if expenses_data.empty:
+        fig.add_annotation(
+            text="No data to show",
+            xref=f"x{row}",
+            yref=f"y{row}",
+            showarrow=False,
+            name="nodata")
+        fig.update_xaxes(showline=False, row=row, col=col)
+        return fig
 
     ridgeline(expenses_data,
               category_col="category",
@@ -506,7 +534,7 @@ def add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date, fig, 
     return fig
 
 
-def add_balance_lineplot(aggregate_by, fig, row, col):
+def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
     freq = aggregate_by
 
     expenses = st.session_state.modified_budget["expenses"].copy()
@@ -533,6 +561,16 @@ def add_balance_lineplot(aggregate_by, fig, row, col):
 
     # merge daily balances back into the transaction data
     all_data = all_data.merge(daily_totals[["date", "balance"]], on="date", how="left")
+
+    if all_data.empty:
+        fig.add_annotation(
+            text="No data to show",
+            xref=f"x{row}",
+            yref=f"y{row}",
+            showarrow=False,
+            name="nodata")
+        fig.update_xaxes(showline=False, row=row, col=col)
+        return fig, start_date, end_date
 
     # create balance data for plotting (calculate balance for each day)
     if pd.isna(all_data["date"].min()):
@@ -626,6 +664,16 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
                .fillna(0)
                )
 
+    if plot_df_init.empty:
+        fig.add_annotation(
+            text="No data to show",
+            xref=f"x{row}",
+            yref=f"y{row}",
+            showarrow=False,
+            name="nodata")
+        fig.update_xaxes(showline=False, row=row, col=col)
+        return fig
+
     true_amount = (savings  # noqa: PD010
                .pivot(columns="category", values="amount")
                .reindex(full_date_range)
@@ -717,7 +765,7 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
     return fig
 
 
-def trends_plot(aggregate_by, hide_fixed):
+def trends_plot(aggregate_by, hide_fixed, start_date, end_date):
     aggregate_by_to_adj = {
         "1D": "Daily",
         "3D": "3-days",
@@ -733,10 +781,11 @@ def trends_plot(aggregate_by, hide_fixed):
                         subplot_titles=("Expenses", "Balance", "Savings"),
                         shared_xaxes="all")
 
-    fig, start_date, end_date = add_balance_lineplot(aggregate_by, fig, row=2, col=1)
-    fig = add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date,
+    fig, data_start_date, data_end_date = add_balance_lineplot(aggregate_by, start_date, end_date,
+                                                               fig, row=2, col=1)
+    fig = add_expenses_ridgeline(hide_fixed, aggregate_by, data_start_date, data_end_date,
                                  fig=fig, row=1, col=1)
-    fig = add_savings_stacked_area(aggregate_by, start_date, end_date,
+    fig = add_savings_stacked_area(aggregate_by, data_start_date, data_end_date,
                                    fig=fig, row=3, col=1)
 
     fig.update_layout(template="one_light",
@@ -765,6 +814,7 @@ def trends_plot(aggregate_by, hide_fixed):
                       )
 
     fig.update_annotations(font=dict(size=18), yshift=10)
+    fig.update_annotations(selector=dict(name="nodata"), font=dict(size=16))
     fig.update_annotations(selector=dict(name="ytitles"), font=dict(size=14), xshift=-10)
     fig.update_xaxes(title=None, tickfont=dict(size=14))
     fig.update_yaxes(showline=False, tickfont=dict(size=14))
@@ -776,7 +826,7 @@ def restart_button():
     if st.button("⟳", help="Clear cache and restart"):
         st.session_state.first_run = True
         st.cache_data.clear()
-        st.rerun()
+        # st.rerun()
 
 
 def extract_sheet_id(url):
@@ -864,7 +914,7 @@ def main():
         actual_vs_planned_plot(hide_fixed)
         st.markdown("")
         st.markdown("")
-        trends_plot(aggregate_by, hide_fixed)
+        trends_plot(aggregate_by, hide_fixed, start_date, end_date)
 
 
 if __name__ == "__main__":
