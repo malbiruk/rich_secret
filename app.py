@@ -861,7 +861,9 @@ def extract_sheet_id(url):
 
 @ st.dialog("Input Google Sheets link")
 def request_google_doc_link():
-    link = st.text_input("Link to the Google Sheets with budget")
+    link = st.text_input(
+        "Link to the Google Sheets with budget",
+        placeholder="https://docs.google.com/spreadsheets/d/19wTUH2nv4bkI2fPUgGaLDiFV9tyY3N1j3hBoVx2zBsk")
     st.markdown("""
 The easiest way to create a valid Google Sheet for the app is to populate
 [this template](https://docs.google.com/spreadsheets/d/19wTUH2nv4bkI2fPUgGaLDiFV9tyY3N1j3hBoVx2zBsk)
