@@ -190,7 +190,7 @@ def settings(budget_sheets, now_gmt4):
         elif mode == "Custom":
             col_1, col_2 = st.columns(2)
             start_date = col_1.date_input("Start date",
-                                          (now_gmt4.now() - datetime.timedelta(days=1)))
+                                          (now_gmt4.now() - datetime.timedelta(days=30)))
             end_date = col_2.date_input("End date")
 
     start_date = pd.to_datetime(start_date).floor("D")
