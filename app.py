@@ -229,17 +229,19 @@ def settings(budget_sheets, now_gmt4):
 
 
 def calculate_stats(budget_data, start_date, end_date):
+    budget_data_all = filter_sheets_by_date_range(
+        st.session_state.budget, pd.to_datetime("1900-01-01"), end_date)
     monthly_plan_data = budget_data["monthly_plan"]
 
     total_income = budget_data["income"]["converted_amount"].sum()
     total_expenses = budget_data["expenses"]["converted_amount"].sum()
-    total_savings = (budget_data["savings"]["converted_amount"].sum()
+    total_savings = (budget_data_all["savings"]["converted_amount"].sum()
                      + budget_data["init"].loc[1:, "converted_amount"].sum())
 
     balance = (
         budget_data["init"].loc[0, "converted_amount"]
-        + total_income
-        - total_expenses
+        + budget_data_all["income"]["converted_amount"].sum()
+        - budget_data_all["expenses"]["converted_amount"].sum()
         - total_savings + budget_data["init"].loc[1:, "converted_amount"].sum()
     )
 
@@ -277,8 +279,7 @@ def calculate_stats(budget_data, start_date, end_date):
 def stats(mode, start_date, end_date):
     last_col_width = 1.5 if st.session_state.target_currency == "BTC" else 1.1
     cols = st.columns([1, 1, 1, 1, last_col_width])
-    this_period_stats = calculate_stats(
-        st.session_state.modified_budget, start_date, end_date)
+    this_period_stats = calculate_stats(st.session_state.modified_budget, start_date, end_date)
 
     precision = (5 if st.session_state.target_currency == "BTC"
                  else 0 if st.session_state.target_currency == "RUB"
@@ -580,7 +581,14 @@ def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
         {"converted_amount": "sum"}).reset_index()
 
     # sum transactions per day and compute cumulative balance
-    initial_balance = st.session_state.modified_budget["init"].loc[0, "converted_amount"]
+    budget_data_all = filter_sheets_by_date_range(
+        st.session_state.budget, pd.to_datetime("1900-01-01"), start_date)
+    initial_balance = (
+        st.session_state.modified_budget["init"].loc[0, "converted_amount"]
+        + budget_data_all["income"]["converted_amount"].sum()
+        - budget_data_all["expenses"]["converted_amount"].sum()
+        - budget_data_all["savings"]["converted_amount"].sum()
+    )
     daily_totals = all_data.groupby("date")["converted_amount"].sum().reset_index()
     daily_totals["balance"] = initial_balance + daily_totals["converted_amount"].cumsum()
 
@@ -921,10 +929,12 @@ def main():
             mode,
          hide_fixed) = settings(st.session_state.budget, now_gmt4)
 
-        st.session_state.modified_budget = convert_amounts_to_target_currency(
-            filter_sheets_by_date_range(st.session_state.budget, start_date, end_date),
+        st.session_state.budget = convert_amounts_to_target_currency(
+            st.session_state.budget,
             st.session_state.target_currency,
             st.session_state.exchange_rates)
+        st.session_state.modified_budget = filter_sheets_by_date_range(
+            st.session_state.budget, start_date, end_date)
 
         # no idea why I need to rerun it here but otherwise plots don't show
         if st.session_state.first_run:
