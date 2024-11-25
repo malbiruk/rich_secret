@@ -470,7 +470,7 @@ def actual_vs_planned_plot(hide_fixed):
     fig.update_xaxes(title=None, row=1, col=2)
     fig.update_yaxes(showline=False, tickfont=dict(size=14))
 
-    st.plotly_chart(fig, theme=None)
+    st.plotly_chart(fig, theme=None, config={"scrollZoom": True})
 
 
 def add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date, fig, row, col):
@@ -765,7 +765,7 @@ def trends_plot(aggregate_by, hide_fixed):
     fig.update_xaxes(title=None, tickfont=dict(size=14))
     fig.update_yaxes(showline=False, tickfont=dict(size=14))
 
-    st.plotly_chart(fig, theme=None)
+    st.plotly_chart(fig, theme=None, config={"scrollZoom": True})
 
 
 def restart_button():
