@@ -169,7 +169,7 @@ def settings(budget_sheets, now_gmt4):
             selected_month = col_1.selectbox(
                 "Select Month", [f"{i:02d}" for i in range(1, 13)], index=now_gmt4.month - 1)
             selected_year = col_2.number_input(
-                "Select Year", value=now_gmt4.year, min_value=2024, max_value=2100)
+                "Select Year", value=now_gmt4.year, min_value=1900, max_value=2100)
             start_date = datetime.date(int(selected_year), int(selected_month), 1)
             end_date = (start_date + datetime.timedelta(days=31)
                         ).replace(day=1) - datetime.timedelta(days=1)
@@ -178,7 +178,7 @@ def settings(budget_sheets, now_gmt4):
             selected_quarter = col_1.selectbox(
                 "Select Quarter", ["Q1", "Q2", "Q3", "Q4"], index=(now_gmt4.month-1)//3)
             selected_year = col_2.number_input(
-                "Select Year", value=now_gmt4.year, min_value=2024, max_value=2100)
+                "Select Year", value=now_gmt4.year, min_value=1900, max_value=2100)
             quarter_start_month = {"Q1": 1, "Q2": 4, "Q3": 7, "Q4": 10}[selected_quarter]
             start_date = datetime.date(selected_year, quarter_start_month, 1)
             end_date = (start_date + datetime.timedelta(days=92)
@@ -186,7 +186,7 @@ def settings(budget_sheets, now_gmt4):
         elif mode == "Year":
             _col, col_1, _col = st.columns([0.5, 1, 0.5])
             selected_year = col_1.number_input(
-                "Select Year", value=now_gmt4.year, min_value=2024, max_value=2100)
+                "Select Year", value=now_gmt4.year, min_value=1900, max_value=2100)
             start_date = datetime.date(selected_year, 1, 1)
             end_date = datetime.date(selected_year, 12, 31)
         elif mode == "Custom":
