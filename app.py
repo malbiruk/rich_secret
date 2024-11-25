@@ -317,9 +317,19 @@ def stats(mode, start_date, end_date):
             list(this_period_stats.values())[:4],
             list(deltas.values())[:4],
             strict=True):
+        if mode == "Custom":
+            percentage_str = ""
+        else:
+            percentage = (
+                None if prev_period_stats["_".join(metric_name.lower().split())] == 0
+                else round(delta / prev_period_stats["_".join(metric_name.lower().split())]*100))
+            percentage_str = (
+                "" if percentage is None
+                else f" (+{percentage}%)" if percentage > 0 else f" ({percentage}%)")
         col.metric(metric_name,
                    millify(this_period_value, precision=precision),
-                   delta=delta if delta is None else millify(delta, precision=precision),
+                   delta=(delta if delta is None
+                          else millify(delta, precision=precision)+percentage_str),
                    delta_color="inverse" if metric_name == "Total Expenses" else "normal",
                    help=(str(round(this_period_value, 10))
                          if st.session_state.target_currency == "BTC"
@@ -340,13 +350,28 @@ def stats(mode, start_date, end_date):
         if np.isnan(deltas["actual_weekly_spend"])
         else deltas["actual_weekly_spend"])
 
+    if deltas["actual_weekly_spend"] is not None:
+        percentage = (
+            None if prev_period_stats["actual_weekly_spend"] == 0 or np.isnan(prev_period_stats["actual_weekly_spend"])
+            else round(deltas["actual_weekly_spend"] / prev_period_stats["actual_weekly_spend"]*100))
+        percentage_str_actual = (
+            "" if percentage is None
+            else f" (+{percentage}%)" if percentage > 0 else f" ({percentage}%)")
+        percentage = (
+            None if prev_period_stats["can_spend_weekly"] == 0 or np.isnan(prev_period_stats["can_spend_weekly"])
+            else round(deltas["can_spend_weekly"] / prev_period_stats["can_spend_weekly"]*100))
+        percentage_str_allowance = (
+            "" if percentage is None
+            else f" (+{percentage}%)" if percentage > 0 else f" ({percentage}%)")
+
     cols[-1].metric(
         metric_names[-1],
         f"{millify(this_period_stats["actual_weekly_spend"], precision=precision)} / "
         f"{millify(this_period_stats["can_spend_weekly"], precision=precision)}",
         delta=None if deltas["actual_weekly_spend"] is None else (
-            f"{millify(deltas["actual_weekly_spend"], precision=precision)} / "
-            f"{millify(deltas["can_spend_weekly"], precision=precision)}"
+            f"{millify(deltas["actual_weekly_spend"], precision=precision)}{
+                percentage_str_actual} / "
+            f"{millify(deltas["can_spend_weekly"], precision=precision)}{percentage_str_allowance}"
         ),
         delta_color="off",
         help=f"Actual Weekly Spend (without fixed): {actual_weekly_spend_full}\n\n"
@@ -834,7 +859,7 @@ def extract_sheet_id(url):
     return match.group(1) if match else None
 
 
-@st.dialog("Input Google Sheets link")
+@ st.dialog("Input Google Sheets link")
 def request_google_doc_link():
     link = st.text_input("Link to the Google Sheets with budget")
     st.markdown("""
