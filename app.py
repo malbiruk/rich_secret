@@ -20,12 +20,6 @@ from ridgeline_plot import color_to_rgb, ridgeline
 
 pio.templates.default = "one_light"
 
-AGGREGATE_BY_TO_FREQ = {
-    "days": "1D",
-    "weeks": "1W",
-    "months": "30D",
-}
-
 
 @st.cache_data
 def get_data(google_doc_id: str) -> dict[str, pd.DataFrame]:
@@ -68,14 +62,14 @@ def get_conversion_rate(row, target_currency: str, exchange_rates: dict[str, flo
     return None
 
 
-def get_previous_period(start_date, end_date, aggregate_by):
-    if aggregate_by == "days":
+def get_previous_period(start_date, end_date, mode):
+    if mode == "Month":
         prev_start_date = (start_date - pd.DateOffset(months=1)).replace(day=1)
         prev_end_date = (prev_start_date + pd.DateOffset(months=1)) - pd.Timedelta(days=1)
-    elif aggregate_by == "weeks":
+    elif mode == "Quarter":
         prev_start_date = (start_date - pd.DateOffset(months=3)).replace(day=1)
         prev_end_date = (prev_start_date + pd.DateOffset(months=3)) - pd.Timedelta(days=1)
-    elif aggregate_by == "months":
+    elif mode == "Year":
         prev_start_date = start_date - pd.DateOffset(years=1)
         prev_end_date = end_date - pd.DateOffset(years=1)
     else:
@@ -158,7 +152,7 @@ def settings(budget_sheets, now_gmt4):
     col1, col2, _col4, col3 = st.columns([1, 1, .5, .5])
     mode = col1.pills(
         "Mode",
-        ["Month", "Quarter", "Year"],
+        ["Month", "Quarter", "Year", "Custom"],
         selection_mode="single",
         default="Month",
     )
@@ -176,7 +170,6 @@ def settings(budget_sheets, now_gmt4):
             start_date = datetime.date(int(selected_year), int(selected_month), 1)
             end_date = (start_date + datetime.timedelta(days=31)
                         ).replace(day=1) - datetime.timedelta(days=1)
-            aggregate_by = "days"
         elif mode == "Quarter":
             col_1, col_2 = st.columns(2)
             selected_quarter = col_1.selectbox(
@@ -187,26 +180,37 @@ def settings(budget_sheets, now_gmt4):
             start_date = datetime.date(selected_year, quarter_start_month, 1)
             end_date = (start_date + datetime.timedelta(days=92)
                         ).replace(day=1) - datetime.timedelta(days=1)
-            aggregate_by = "weeks"
         elif mode == "Year":
             _col, col_1, _col = st.columns([0.5, 1, 0.5])
             selected_year = col_1.number_input(
                 "Select Year", value=now_gmt4.year, min_value=2024, max_value=2100)
             start_date = datetime.date(selected_year, 1, 1)
             end_date = datetime.date(selected_year, 12, 31)
-            aggregate_by = "months"
+        elif mode == "Custom":
+            col_1, col_2 = st.columns(2)
+            start_date = col_1.date_input("Start date",
+                                          (now_gmt4.now() - datetime.timedelta(days=1)))
+            end_date = col_2.date_input("End date")
 
     start_date = pd.to_datetime(start_date).floor("D")
     end_date = pd.to_datetime(end_date).floor("D")
-    col2.caption(f"<p style='text-align: center;'>Date range: {start_date.strftime('%d.%m.%Y')}"
-                 f" to {end_date.strftime('%d.%m.%Y')}</p>", unsafe_allow_html=True)
+    col2.caption(f"<p style='text-align: center;'>Date range: {start_date.strftime('%d %b, %Y')}"
+                 f" to {end_date.strftime('%d %b, %Y')}</p>", unsafe_allow_html=True)
 
     currencies = (budget_sheets["categories"]
                   [budget_sheets["categories"]["type"] == "Currency"]
                   ["category"].unique())
     target_currency = col3.selectbox("Currency:", currencies, index=0)
 
-    return target_currency, start_date, end_date, aggregate_by
+    col1, col2, col3, col4 = st.columns([.5, 1, 1, .5], vertical_alignment="bottom")
+    aggregate_by = col1.selectbox(
+        "Aggregate trends by",
+        ["1 day", "3 days", "7 days", "14 days", "30 days"],
+        index=2 if mode == "Quarter" else 4 if mode == "Year" else 0)
+    aggregate_by = aggregate_by.split(" ", 1)[0]+"D"
+    hide_fixed = col4.checkbox("Hide fixed expenses")
+
+    return target_currency, start_date, end_date, aggregate_by, mode, hide_fixed
 
 
 def calculate_stats(budget_data, start_date, end_date):
@@ -255,30 +259,41 @@ def calculate_stats(budget_data, start_date, end_date):
     }
 
 
-def stats(aggregate_by, start_date, end_date):
+def stats(mode, start_date, end_date):
     last_col_width = 1.5 if st.session_state.target_currency == "BTC" else 1.1
     cols = st.columns([1, 1, 1, 1, last_col_width])
     this_period_stats = calculate_stats(
         st.session_state.modified_budget, start_date, end_date)
 
-    prev_period = get_previous_period(start_date, end_date, aggregate_by)
-    prev_modified_budget = filter_sheets_by_date_range(st.session_state.budget, *prev_period)
-    prev_modified_budget = convert_amounts_to_target_currency(
-        prev_modified_budget, st.session_state.target_currency, st.session_state.exchange_rates)
-    prev_period_stats = calculate_stats(prev_modified_budget, *prev_period)
-
-    deltas = {
-        "balance": this_period_stats["balance"] - prev_period_stats["balance"],
-        "total_income": this_period_stats["total_income"] - prev_period_stats["total_income"],
-        "total_expenses": this_period_stats["total_expenses"] - prev_period_stats["total_expenses"],
-        "total_savings": this_period_stats["total_savings"] - prev_period_stats["total_savings"],
-        "actual_weekly_spend": this_period_stats["actual_weekly_spend"] - prev_period_stats["actual_weekly_spend"],
-        "can_spend_weekly": this_period_stats["can_spend_weekly"] - prev_period_stats["can_spend_weekly"],
-    }
-
     precision = (5 if st.session_state.target_currency == "BTC"
                  else 0 if st.session_state.target_currency == "RUB"
                  else 2)
+
+    if mode != "Custom":
+        prev_period = get_previous_period(start_date, end_date, mode)
+        prev_modified_budget = filter_sheets_by_date_range(st.session_state.budget, *prev_period)
+        prev_modified_budget = convert_amounts_to_target_currency(
+            prev_modified_budget, st.session_state.target_currency, st.session_state.exchange_rates)
+        prev_period_stats = calculate_stats(prev_modified_budget, *prev_period)
+
+        deltas = {
+            "balance": this_period_stats["balance"] - prev_period_stats["balance"],
+            "total_income": this_period_stats["total_income"] - prev_period_stats["total_income"],
+            "total_expenses": this_period_stats["total_expenses"] - prev_period_stats["total_expenses"],
+            "total_savings": this_period_stats["total_savings"] - prev_period_stats["total_savings"],
+            "actual_weekly_spend": this_period_stats["actual_weekly_spend"] - prev_period_stats["actual_weekly_spend"],
+            "can_spend_weekly": this_period_stats["can_spend_weekly"] - prev_period_stats["can_spend_weekly"],
+        }
+    else:
+        deltas = {
+            "balance": None,
+            "total_income": None,
+            "total_expenses": None,
+            "total_savings": None,
+            "actual_weekly_spend": None,
+            "can_spend_weekly": None,
+        }
+
     metric_names = ["Balance", "Total Income", "Total Expenses",
                     "Total Savings", "Weekly Spend / Allowance"]
     for col, metric_name, this_period_value, delta in zip(
@@ -289,7 +304,7 @@ def stats(aggregate_by, start_date, end_date):
             strict=True):
         col.metric(metric_name,
                    millify(this_period_value, precision=precision),
-                   delta=millify(delta, precision=precision),
+                   delta=delta if delta is None else millify(delta, precision=precision),
                    delta_color="inverse" if metric_name == "Total Expenses" else "normal",
                    help=(str(round(this_period_value, 10))
                          if st.session_state.target_currency == "BTC"
@@ -304,14 +319,17 @@ def stats(aggregate_by, start_date, end_date):
 
     this_period_stats["actual_weekly_spend"] = 0 if np.isnan(
         this_period_stats["actual_weekly_spend"]) else this_period_stats["actual_weekly_spend"]
-    deltas["actual_weekly_spend"] = this_period_stats["actual_weekly_spend"] if np.isnan(
-        deltas["actual_weekly_spend"]) else deltas["actual_weekly_spend"]
+    deltas["actual_weekly_spend"] = (
+        None if deltas["actual_weekly_spend"] is None
+        else this_period_stats["actual_weekly_spend"]
+        if np.isnan(deltas["actual_weekly_spend"])
+        else deltas["actual_weekly_spend"])
 
     cols[-1].metric(
         metric_names[-1],
         f"{millify(this_period_stats["actual_weekly_spend"], precision=precision)} / "
         f"{millify(this_period_stats["can_spend_weekly"], precision=precision)}",
-        delta=(
+        delta=None if deltas["actual_weekly_spend"] is None else (
             f"{millify(deltas["actual_weekly_spend"], precision=precision)} / "
             f"{millify(deltas["can_spend_weekly"], precision=precision)}"
         ),
@@ -324,11 +342,11 @@ def create_plot_data_actual_vs_planned(
         plan_data,
         data_type,
         *,
-        show_fixed: bool = False):
+        hide_fixed: bool = False):
 
     plan_data = plan_data[plan_data["type"] == data_type].copy()
     actual_data = st.session_state.modified_budget[data_type].copy()
-    if data_type == "expenses" and not show_fixed:
+    if data_type == "expenses" and hide_fixed:
         if "Fixed" in actual_data["category"].cat.categories:
             actual_data["category"] = actual_data["category"].cat.remove_categories("Fixed")
         if "Fixed" in plan_data["category"].cat.categories:
@@ -413,7 +431,7 @@ def add_actual_vs_planned_subplot(fig, plot_data, row, col, *, swapped_colors=Fa
     return fig
 
 
-def actual_vs_planned_plot(show_fixed):
+def actual_vs_planned_plot(hide_fixed):
     st.markdown("<h5><span style='color:lightseagreen'>Actual</span>"
                 " vs <span style='color:darkgray'>Planned</span></h5>",
                 unsafe_allow_html=True)
@@ -422,7 +440,7 @@ def actual_vs_planned_plot(show_fixed):
         data_type: create_plot_data_actual_vs_planned(
             st.session_state.modified_budget["monthly_plan"],
             data_type,
-            show_fixed=show_fixed,
+            hide_fixed=hide_fixed,
         ) for data_type in ("expenses", "income", "savings")
     }
 
@@ -451,9 +469,9 @@ def actual_vs_planned_plot(show_fixed):
     st.plotly_chart(fig, theme=None)
 
 
-def add_expenses_ridgeline(show_fixed, aggregate_by, start_date, end_date, fig, row, col):
+def add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date, fig, row, col):
     expenses_data = st.session_state.modified_budget["expenses"].copy()
-    if not show_fixed and "Fixed" in expenses_data["category"].cat.categories:
+    if hide_fixed and "Fixed" in expenses_data["category"].cat.categories:
         expenses_data["category"] = expenses_data["category"].cat.remove_categories("Fixed")
     category_sums = (expenses_data.groupby("category", observed=True)["converted_amount"].sum())
     sorted_categories = category_sums.sort_values().index
@@ -472,7 +490,7 @@ def add_expenses_ridgeline(show_fixed, aggregate_by, start_date, end_date, fig, 
               jitter_strength_y=1,
               line_width=1.5,
               hoverdata=["name", "amount", "currency"],
-              bin_width=AGGREGATE_BY_TO_FREQ[aggregate_by],
+              bin_width=aggregate_by,
               data_range=(start_date, end_date),
               ylabels_xref="paper",
               fig=fig, row=row, col=col)
@@ -481,7 +499,7 @@ def add_expenses_ridgeline(show_fixed, aggregate_by, start_date, end_date, fig, 
 
 
 def add_balance_lineplot(aggregate_by, fig, row, col):
-    freq = AGGREGATE_BY_TO_FREQ[aggregate_by]
+    freq = aggregate_by
 
     expenses = st.session_state.modified_budget["expenses"].copy()
     income = st.session_state.modified_budget["income"].copy()
@@ -581,10 +599,10 @@ def add_balance_lineplot(aggregate_by, fig, row, col):
 
 
 def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
-    freq = AGGREGATE_BY_TO_FREQ[aggregate_by]
+    freq = aggregate_by
     savings = st.session_state.modified_budget["savings"].copy()
     zeros_df = pd.DataFrame(
-        [{"date": start_date, "category": category,
+        [{"date": start_date-pd.to_timedelta("1D"), "category": category,
           "amount": 0, "converted_amount": 0}
          for category in st.session_state.modified_budget["init"].loc[1:, "field"].unique()])
     savings = pd.concat([zeros_df, savings])
@@ -691,11 +709,13 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
     return fig
 
 
-def trends_plot(aggregate_by, show_fixed):
+def trends_plot(aggregate_by, hide_fixed):
     aggregate_by_to_adj = {
-        "days": "Daily",
-        "weeks": "Weekly",
-        "months": "Monthly",
+        "1D": "Daily",
+        "3D": "3-days",
+        "7D": "Weekly",
+        "14D": "Biweekly",
+        "30D": "Monthly",
     }
 
     st.markdown(f"##### {aggregate_by_to_adj[aggregate_by]} Trends")
@@ -706,7 +726,7 @@ def trends_plot(aggregate_by, show_fixed):
                         shared_xaxes="all")
 
     fig, start_date, end_date = add_balance_lineplot(aggregate_by, fig, row=2, col=1)
-    fig = add_expenses_ridgeline(show_fixed, aggregate_by, start_date, end_date,
+    fig = add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date,
                                  fig=fig, row=1, col=1)
     fig = add_savings_stacked_area(aggregate_by, start_date, end_date,
                                    fig=fig, row=3, col=1)
@@ -770,6 +790,9 @@ with your values.
 2. Ensure that the sharing mode of the sheet is "Everyone can view".
 3. Input your values in the template.
         """, unsafe_allow_html=True)
+    st.caption("P.S. If you just want to see what the app looks "
+               "like without creating your own Google Sheets, you can paste link to the template "
+               "into the link field.")
 
     if link:
         st.session_state.google_doc_id = extract_sheet_id(link)
@@ -806,8 +829,12 @@ def main():
         with col2:
             restart_button()
 
-        st.session_state.target_currency, start_date, end_date, aggregate_by = settings(
-            st.session_state.budget, now_gmt4)
+        (st.session_state.target_currency,
+            start_date,
+            end_date,
+            aggregate_by,
+            mode,
+         hide_fixed) = settings(st.session_state.budget, now_gmt4)
 
         st.session_state.modified_budget = convert_amounts_to_target_currency(
             filter_sheets_by_date_range(st.session_state.budget, start_date, end_date),
@@ -820,17 +847,16 @@ def main():
             st.rerun()
 
         st.subheader("Stats", anchor=False)
-        stats(aggregate_by, start_date, end_date)
+        stats(mode, start_date, end_date)
 
         st.markdown("")
-        col1, col2 = st.columns([4, 1], vertical_alignment="bottom")
-        col1.subheader("Plots", anchor=False)
-        show_fixed = col2.checkbox("Show fixed expenses")
+        # col1, col2 = st.columns([4, 1], vertical_alignment="bottom")
+        st.subheader("Plots", anchor=False)
 
-        actual_vs_planned_plot(show_fixed)
+        actual_vs_planned_plot(hide_fixed)
         st.markdown("")
         st.markdown("")
-        trends_plot(aggregate_by, show_fixed)
+        trends_plot(aggregate_by, hide_fixed)
 
 
 if __name__ == "__main__":
