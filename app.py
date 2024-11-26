@@ -235,14 +235,13 @@ def calculate_stats(budget_data, start_date, end_date):
 
     total_income = budget_data["income"]["converted_amount"].sum()
     total_expenses = budget_data["expenses"]["converted_amount"].sum()
-    total_savings = (budget_data_all["savings"]["converted_amount"].sum()
-                     + budget_data["init"].loc[1:, "converted_amount"].sum())
+    total_savings = budget_data["savings"]["converted_amount"].sum()
 
     balance = (
         budget_data["init"].loc[0, "converted_amount"]
         + budget_data_all["income"]["converted_amount"].sum()
         - budget_data_all["expenses"]["converted_amount"].sum()
-        - total_savings + budget_data["init"].loc[1:, "converted_amount"].sum()
+        - budget_data_all["savings"]["converted_amount"].sum()
     )
 
     planned_income = (
