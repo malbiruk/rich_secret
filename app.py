@@ -581,7 +581,9 @@ def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
 
     # sum transactions per day and compute cumulative balance
     budget_data_all = filter_sheets_by_date_range(
-        st.session_state.budget, pd.to_datetime("1900-01-01"), start_date)
+        st.session_state.budget,
+        pd.to_datetime("1900-01-01"),
+        start_date-pd.to_timedelta("1D"))
     initial_balance = (
         st.session_state.modified_budget["init"].loc[0, "converted_amount"]
         + budget_data_all["income"]["converted_amount"].sum()
@@ -858,7 +860,7 @@ def restart_button():
     if st.button("⟳", help="Clear cache and restart"):
         st.session_state.first_run = True
         st.cache_data.clear()
-        # st.rerun()
+        st.rerun()
 
 
 def extract_sheet_id(url):
