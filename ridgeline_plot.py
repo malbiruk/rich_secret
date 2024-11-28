@@ -11,15 +11,18 @@ def _create_array_dict(data, category_col, data_col,
                        normalize_each, scaling_factor):
     array_dict = {}
     target_area = (data[data_col].max() - data[data_col].min()) * 0.25
+    max_y_normalized = 0
+
     for category in list(data[category_col].unique()):
         array_dict[f"x_{category}"] = data[data[category_col] == category][data_col]
         array_dict[f"y_{category}"] = data[data[category_col] == category]["count"]
         if normalize_each:
             current_area = np.trapz(array_dict[f"y_{category}"], array_dict[f"x_{category}"])
             normalization_factor = target_area / current_area if current_area > 0 else 1
-            array_dict[f"y_{category}_normalized"] = array_dict[f"y_{
-                category}"] * normalization_factor * scaling_factor
-            array_dict[f"{category}_norm_factor"] = normalization_factor * scaling_factor
+            normalized_y = array_dict[f"y_{category}"] * normalization_factor
+            array_dict[f"y_{category}_normalized"] = normalized_y
+            array_dict[f"{category}_norm_factor"] = normalization_factor
+            max_y_normalized = max(max_y_normalized, normalized_y.max())
 
         else:
             min_count = data["count"].min()
@@ -29,6 +32,20 @@ def _create_array_dict(data, category_col, data_col,
             array_dict[f"{category}_norm_factor"] = (
                 (scaling_factor / (max_count - min_count))
                 - (min_count * scaling_factor / (max_count - min_count)))
+        sample_value = array_dict[f"x_{category}"].dropna().iloc[0]
+        if isinstance(sample_value, (int | float | np.number)):
+            array_dict[f"x_{category}"] = array_dict[f"x_{
+                category}"].astype(float)
+        elif isinstance(sample_value, (str | pd.Timestamp)):
+            array_dict[f"x_{category}"] = pd.to_datetime(
+                array_dict[f"x_{category}"], errors="coerce")
+
+    if normalize_each and max_y_normalized > 0:
+        adjustment_factor = scaling_factor / max_y_normalized
+        for category in list(data[category_col].unique()):
+            array_dict[f"y_{category}_normalized"] *= adjustment_factor
+            array_dict[f"{category}_norm_factor"] *= adjustment_factor
+
     return array_dict
 
 
@@ -525,10 +542,7 @@ def ridgeline(
         - If False, uses global min-max normalization across all data.
 
     scaling_factor : float, default=1.75
-        - For `normalize_each=False`, specifies the maximum height of ridgelines
-            (1 corresponds to a single category height).
-        - For `normalize_each=True`, scales the area of each ridgeline
-            (1 corresponds to 25% of category area).
+        Specifies the maximum height of ridgelines (1 corresponds to a single category height).
 
     bin_width : float, str, or None, default=None
         Specifies bin width for `ridgetype="bins"`. For datetime, can be strings like "1D".
