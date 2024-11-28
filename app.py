@@ -129,6 +129,8 @@ def initialize_session_state():
         st.session_state.exchange_rates = None
     if "mode_not_selected" not in st.session_state:
         st.session_state.mode_not_selected = False
+    if "settings" not in st.session_state:
+        st.session_state.settings = None
 
 
 def customize_page_appearance() -> None:
@@ -224,6 +226,17 @@ def settings(budget_sheets, now_gmt4):
     if start_date > end_date:
         st.error("The start date cannot be later than the end date.")
         st.stop()
+
+    selected_settings = {
+        "target_currency": target_currency,
+        "start_date": start_date,
+        "end_date": end_date,
+        "mode": mode,
+    }
+
+    if selected_settings != st.session_state.settings:
+        st.session_state.first_run = True
+        st.session_state.settings = selected_settings
 
     return target_currency, start_date, end_date, aggregate_by, mode, hide_fixed
 
