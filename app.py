@@ -909,8 +909,8 @@ with your values.
 3. Input your values in the template.
         """, unsafe_allow_html=True)
     st.caption("P.S. If you just want to see what the app looks "
-               "like without creating your own Google Sheets, you can paste link to the template "
-               "into the link field.")
+               "like without creating your own Google Sheets, you can paste a link "
+               "to the template into the link field.")
 
     if link:
         st.session_state.google_doc_id = extract_sheet_id(link)
