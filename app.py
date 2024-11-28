@@ -35,7 +35,7 @@ def get_data(google_doc_id: str) -> dict[str, pd.DataFrame]:
         "init": ["currency"],
     }
 
-    datetime_columns = (
+    datetime_sheets = (
         "monthly_plan",
         "expenses",
         "income",
@@ -44,12 +44,12 @@ def get_data(google_doc_id: str) -> dict[str, pd.DataFrame]:
 
     budget_sheets["monthly_plan"]["type"] = budget_sheets["monthly_plan"]["type"].str.lower()
 
-    for sheet in datetime_columns:
-        budget_sheets[sheet]["date"] = pd.to_datetime(budget_sheets[sheet]["date"])
-
     for sheet, columns in categorical_columns.items():
         for column in columns:
             budget_sheets[sheet][column] = pd.Categorical(budget_sheets[sheet][column])
+
+    for sheet in datetime_sheets:
+        budget_sheets[sheet]["date"] = pd.to_datetime(budget_sheets[sheet]["date"])
 
     return budget_sheets
 
@@ -520,13 +520,8 @@ def actual_vs_planned_plot(hide_fixed):
     st.plotly_chart(fig, theme=None, config={"scrollZoom": True})
 
 
-def add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date, fig, row, col):
-    expenses_data = st.session_state.modified_budget["expenses"].copy()
-    if hide_fixed and "Fixed" in expenses_data["category"].cat.categories:
-        expenses_data["category"] = expenses_data["category"].cat.remove_categories("Fixed")
-    category_sums = (expenses_data.groupby("category", observed=True)["converted_amount"].sum())
-    sorted_categories = category_sums.sort_values().index
-
+def add_expenses_ridgeline(expenses_data, sorted_categories, normalize_each, aggregate_by,
+                           start_date, end_date, fig, row, col):
     if expenses_data.empty:
         fig.add_annotation(
             text="No data to show",
@@ -537,24 +532,26 @@ def add_expenses_ridgeline(hide_fixed, aggregate_by, start_date, end_date, fig, 
         fig.update_xaxes(showline=False, row=row, col=col)
         return fig
 
-    ridgeline(expenses_data,
-              category_col="category",
-              categories_order=sorted_categories,
-              data_col="date",
-              stats_col="converted_amount",
-              normalize_each=False,
-              scaling_factor=1.5,
-              edgecolor="dimgray",
-              hover_stats=False,
-              points_size=5,
-              jitter_strength_x=1,
-              jitter_strength_y=1,
-              line_width=1.5,
-              hoverdata=["name", "amount", "currency"],
-              bin_width=aggregate_by,
-              data_range=(start_date, end_date),
-              ylabels_xref="paper",
-              fig=fig, row=row, col=col)
+    fig = ridgeline(expenses_data,
+                    category_col="category",
+                    categories_order=sorted_categories,
+                    data_col="date",
+                    stats_col="converted_amount",
+                    normalize_each=normalize_each,
+                    scaling_factor=1.55,
+                    edgecolor="dimgray",
+                    hover_stats=False,
+                    points_size=5,
+                    jitter_strength_x=1,
+                    jitter_strength_y=1,
+                    line_width=1.5,
+                    hoverdata=["name", "amount", "currency"],
+                    bin_width=aggregate_by,
+                    data_range=(start_date, end_date),
+                    ylabels_xref="paper",
+                    fig=fig, row=row, col=col)
+
+    fig.update_annotations(selector=dict(name="ytitles"), x=0.0125, yshift=-4)
 
     return fig
 
@@ -808,16 +805,30 @@ def trends_plot(aggregate_by, hide_fixed, start_date, end_date):
         "30D": "Monthly",
     }
 
-    st.markdown(f"##### {aggregate_by_to_adj[aggregate_by]} Trends")
+    col1, col2 = st.columns([2.5, 1])
+    col1.markdown(f"##### {aggregate_by_to_adj[aggregate_by]} Trends")
+    normalize_each = col2.toggle(
+        "Normalize categories separately",
+        help="ON: Focus on patterns within each category.\n\n"
+        "OFF: Show relative sizes across all categories.")
+
+    expenses_data = st.session_state.modified_budget["expenses"].copy()
+    if hide_fixed and "Fixed" in expenses_data["category"].cat.categories:
+        expenses_data["category"] = expenses_data["category"].cat.remove_categories("Fixed")
+    category_sums = (expenses_data.groupby("category", observed=True)["converted_amount"].sum())
+    sorted_categories = category_sums.sort_values().index
+    n_categories = len(sorted_categories)
 
     fig = make_subplots(rows=3, cols=1,
+                        row_heights=[n_categories/5, 1, 1],
                         vertical_spacing=0.15,
                         subplot_titles=("Expenses", "Balance", "Savings"),
                         shared_xaxes="all")
 
     fig, data_start_date, data_end_date = add_balance_lineplot(aggregate_by, start_date, end_date,
                                                                fig, row=2, col=1)
-    fig = add_expenses_ridgeline(hide_fixed, aggregate_by, data_start_date, data_end_date,
+    fig = add_expenses_ridgeline(expenses_data, sorted_categories, normalize_each, aggregate_by,
+                                 data_start_date, data_end_date,
                                  fig=fig, row=1, col=1)
     fig = add_savings_stacked_area(aggregate_by, data_start_date, data_end_date,
                                    fig=fig, row=3, col=1)
@@ -826,7 +837,7 @@ def trends_plot(aggregate_by, hide_fixed, start_date, end_date):
                       plot_bgcolor="#fafafa",
                       dragmode="pan",
                       margin={"l": 110, "r": 0, "t": 30, "b": 50},
-                      height=700,
+                      height=800,
                       xaxis_showticklabels=True,
                       xaxis2_showticklabels=True,
                       yaxis2_showticklabels=True,
