@@ -691,11 +691,41 @@ def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
 def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
     freq = aggregate_by
     savings = st.session_state.modified_budget["savings"].copy()
+
+    savings_prev = filter_sheets_by_date_range(
+        st.session_state.budget,
+        pd.to_datetime("1900-01-01"),
+        start_date-pd.to_timedelta("1D"))["savings"]
+    init_savings = st.session_state.modified_budget["init"].loc[1:, :].copy()
+
+    # add summed savings from previous periods to st.session_state.modified_budget["init"]
+    savings_prev_sum = (
+        savings_prev[["category", "amount", "currency", "converted_amount"]]
+        .groupby("category", as_index=False)
+        .agg({"amount": "sum", "currency": "first", "converted_amount": "sum"}))
+
+    merged_df = init_savings.merge(
+        savings_prev_sum.rename(columns={"category": "field"}),
+        on=["field", "currency"],
+        how="outer",
+    )
+    result = merged_df.groupby(["field", "currency"], as_index=False).agg({
+        "amount_x": "sum",
+        "amount_y": "sum",
+        "converted_amount_x": "sum",
+        "converted_amount_y": "sum",
+    }).fillna(0)
+    init_savings = result.assign(
+        amount=result.amount_x + result.amount_y,
+        converted_amount=result.converted_amount_x + result.converted_amount_y,
+    )[["field", "amount", "currency", "converted_amount"]]
+
     zeros_df = pd.DataFrame(
         [{"date": start_date-pd.to_timedelta("1D"), "category": category,
           "amount": 0, "converted_amount": 0}
-         for category in st.session_state.modified_budget["init"].loc[1:, "field"].unique()])
+         for category in init_savings["field"].unique()])
     savings = pd.concat([zeros_df, savings])
+
     savings["converted_amount"] = savings.groupby(
         "category", observed=True)["converted_amount"].cumsum()
     full_date_range = pd.date_range(start=start_date,
@@ -732,22 +762,19 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
                )
 
     for column in plot_df_init.columns:
-        if any(st.session_state.modified_budget["init"]["field"] == column):
-            init_saving = st.session_state.modified_budget["init"].loc[
-                st.session_state.modified_budget["init"]["field"] == column,
-                "converted_amount"].to_numpy()
+        if any(init_savings["field"] == column):
+            init_saving = init_savings.loc[init_savings["field"] == column,
+                                           "converted_amount"].to_numpy()
             for i in init_saving:
                 plot_df_init[column] = plot_df_init[column] + i
 
-            init_saving = st.session_state.modified_budget["init"].loc[
-                st.session_state.modified_budget["init"]["field"] == column,
-                "amount"].to_numpy()
+            init_saving = init_savings.loc[init_savings["field"] == column,
+                                           "amount"].to_numpy()
             for i in init_saving:
                 true_amount[column] = true_amount[column] + i
 
-            init_currency = st.session_state.modified_budget["init"].loc[
-                st.session_state.modified_budget["init"]["field"] == column,
-                "currency"].to_numpy()
+            init_currency = init_savings.loc[init_savings["field"] == column,
+                                             "currency"].to_numpy()
             for i in init_currency:
                 if i not in currency[column].cat.categories:
                     currency[column] = currency[column].cat.add_categories(i)
