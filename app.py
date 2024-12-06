@@ -54,14 +54,6 @@ def get_data(google_doc_id: str) -> dict[str, pd.DataFrame]:
     return budget_sheets
 
 
-def get_conversion_rate(row, target_currency: str, exchange_rates: dict[str, float]) -> float:
-    current_currency = row["currency"]
-    if current_currency in exchange_rates and target_currency in exchange_rates:
-        exchange_rate = exchange_rates[target_currency] / exchange_rates[current_currency]
-        return row["amount"] * exchange_rate
-    return None
-
-
 def get_previous_period(start_date, end_date, mode):
     if mode == "Month":
         prev_start_date = (start_date - pd.DateOffset(months=1)).replace(day=1)
@@ -78,18 +70,45 @@ def get_previous_period(start_date, end_date, mode):
     return prev_start_date, prev_end_date
 
 
+def get_historical_conversion_rate(row, target_currency: str, historical_rates: dict[str, dict[str, float]]) -> float:
+    current_currency = row["currency"]
+    row_date = row.get("date")
+
+    if not row_date:
+        closest_date_str = max(historical_rates.keys())
+    else:
+        if isinstance(row_date, pd.Timestamp):
+            row_date = row_date.tz_localize(None)
+        else:
+            row_date = pd.to_datetime(row_date).tz_localize(None)
+
+        closest_date_str = max(
+            (date for date in historical_rates if pd.Timestamp(date).tz_localize(None) <= row_date),
+            default=None)
+
+    if not closest_date_str:
+        return None  # No valid date for conversion
+
+    rates = historical_rates.get(closest_date_str, {})
+    if current_currency in rates and target_currency in rates:
+        exchange_rate = rates[target_currency] / rates[current_currency]
+        return row["amount"] * exchange_rate
+
+    return None  # Missing currency in rates
+
+
 @st.cache_data
 def convert_amounts_to_target_currency(
         budget_sheets: dict[str, pd.DataFrame],
         target_currency: str,
-        exchange_rates: dict[str, float]) -> dict[str, pd.DataFrame]:
+        historical_rates: dict[str, dict[str, float]]) -> dict[str, pd.DataFrame]:
     for df in budget_sheets.values():
         if "amount" in df.columns and "currency" in df.columns:
             df["converted_amount"] = df.apply(
-                get_conversion_rate,
+                get_historical_conversion_rate,
                 axis=1,
                 target_currency=target_currency,
-                exchange_rates=exchange_rates)
+                historical_rates=historical_rates)
     return budget_sheets
 
 
@@ -106,12 +125,30 @@ def filter_sheets_by_date_range(
 
 
 @st.cache_data
-def get_exchange_rates():
+def get_exchange_rates(start_date: str, end_date: str):
+    response = requests.get(
+        f"https://api.fxratesapi.com/timeseries?start_date={start_date}&end_date={end_date}")
+    exchange_rates = response.json()["rates"]
+    for date in exchange_rates:
+        exchange_rates[date]["USDT"] = 1
+    return exchange_rates
+
+
+@st.cache_data
+def get_exchange_rates_latest():
     response = requests.get(
         f"https://api.fxratesapi.com/latest?api_key={st.secrets['fxrates_api']}")
     exchange_rates = response.json()["rates"]
     exchange_rates["USDT"] = 1
     return exchange_rates
+
+
+def get_conversion_rate(row, target_currency: str, exchange_rates: dict[str, float]) -> float:
+    current_currency = row["currency"]
+    if current_currency in exchange_rates and target_currency in exchange_rates:
+        exchange_rate = exchange_rates[target_currency] / exchange_rates[current_currency]
+        return row["amount"] * exchange_rate
+    return None
 
 
 def initialize_session_state():
@@ -127,6 +164,8 @@ def initialize_session_state():
         st.session_state.target_currency = None
     if "exchange_rates" not in st.session_state:
         st.session_state.exchange_rates = None
+    if "latest_exchange_rates" not in st.session_state:
+        st.session_state.latest_exchange_rates = None
     if "mode_not_selected" not in st.session_state:
         st.session_state.mode_not_selected = False
     if "settings" not in st.session_state:
@@ -280,9 +319,9 @@ def calculate_stats(budget_data, start_date, end_date):
     can_spend_weekly = (planned_income - fixed_expenses - planned_savings) / n_weeks
     return {
         "balance": balance,
-        "total_income": total_income,
-        "total_expenses": total_expenses,
-        "total_savings": total_savings,
+        "income": total_income,
+        "expenses": total_expenses,
+        "savings": total_savings,
         "actual_weekly_spend": actual_weekly_spend,
         "can_spend_weekly": can_spend_weekly,
     }
@@ -306,24 +345,24 @@ def stats(mode, start_date, end_date):
 
         deltas = {
             "balance": this_period_stats["balance"] - prev_period_stats["balance"],
-            "total_income": this_period_stats["total_income"] - prev_period_stats["total_income"],
-            "total_expenses": this_period_stats["total_expenses"] - prev_period_stats["total_expenses"],
-            "total_savings": this_period_stats["total_savings"] - prev_period_stats["total_savings"],
+            "income": this_period_stats["income"] - prev_period_stats["income"],
+            "expenses": this_period_stats["expenses"] - prev_period_stats["expenses"],
+            "savings": this_period_stats["savings"] - prev_period_stats["savings"],
             "actual_weekly_spend": this_period_stats["actual_weekly_spend"] - prev_period_stats["actual_weekly_spend"],
             "can_spend_weekly": this_period_stats["can_spend_weekly"] - prev_period_stats["can_spend_weekly"],
         }
     else:
         deltas = {
             "balance": None,
-            "total_income": None,
-            "total_expenses": None,
-            "total_savings": None,
+            "income": None,
+            "expenses": None,
+            "savings": None,
             "actual_weekly_spend": None,
             "can_spend_weekly": None,
         }
 
-    metric_names = ["Balance", "Total Income", "Total Expenses",
-                    "Total Savings", "Weekly Spend / Allowance"]
+    metric_names = ["Balance", "Income", "Expenses",
+                    "Savings", "Weekly Spend / Allowance"]
     for col, metric_name, this_period_value, delta in zip(
             cols[:4],
             metric_names[:4],
@@ -343,7 +382,7 @@ def stats(mode, start_date, end_date):
                    millify(this_period_value, precision=precision),
                    delta=(delta if delta is None
                           else millify(delta, precision=precision)+percentage_str),
-                   delta_color="inverse" if metric_name == "Total Expenses" else "normal",
+                   delta_color="inverse" if metric_name == "Expenses" else "normal",
                    help=(str(round(this_period_value, 10))
                          if st.session_state.target_currency == "BTC"
                          else str(round(this_period_value, 2))))
@@ -691,17 +730,23 @@ def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
 def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
     freq = aggregate_by
     savings = st.session_state.modified_budget["savings"].copy()
-
     savings_prev = filter_sheets_by_date_range(
         st.session_state.budget,
         pd.to_datetime("1900-01-01"),
         start_date-pd.to_timedelta("1D"))["savings"]
     init_savings = st.session_state.modified_budget["init"].loc[1:, :].copy()
 
+    for df in (savings, savings_prev, init_savings):
+        df["converted_amount"] = df.apply(
+            get_conversion_rate,
+            axis=1,
+            target_currency=st.session_state.target_currency,
+            exchange_rates=st.session_state.latest_exchange_rates)
+
     # add summed savings from previous periods to st.session_state.modified_budget["init"]
     savings_prev_sum = (
         savings_prev[["category", "amount", "currency", "converted_amount"]]
-        .groupby("category", as_index=False)
+        .groupby("category", as_index=False, observed=False)
         .agg({"amount": "sum", "currency": "first", "converted_amount": "sum"}))
 
     merged_df = init_savings.merge(
@@ -862,7 +907,7 @@ def trends_plot(aggregate_by, hide_fixed, start_date, end_date):
     fig = make_subplots(rows=3, cols=1,
                         row_heights=[n_categories/5, 1, 1],
                         vertical_spacing=0.15,
-                        subplot_titles=("Expenses", "Balance", "Savings"),
+                        subplot_titles=("Expenses", "Balance", "Total Savings"),
                         shared_xaxes="all")
 
     fig, data_start_date, data_end_date = add_balance_lineplot(aggregate_by, start_date, end_date,
@@ -949,6 +994,23 @@ with your values.
         st.rerun()
 
 
+@st.cache_data
+def get_min_max_dates(budget_sheets: dict[str, pd.DataFrame]) -> tuple[str, str]:
+    min_dates = []
+    max_dates = []
+
+    for df in budget_sheets.values():
+        if "date" in df.columns:
+            min_dates.append(df["date"].dropna().min())
+            max_dates.append(df["date"].dropna().max())
+
+    # Convert results to string in "YYYY-MM-DD" format
+    min_date_str = (pd.Series(min_dates).min() - pd.to_timedelta("1D")).strftime("%Y-%m-%d")
+    max_date_str = (pd.Series(max_dates).max()).strftime("%Y-%m-%d")
+
+    return min_date_str, max_date_str
+
+
 def main():
     customize_page_appearance()
     initialize_session_state()
@@ -963,7 +1025,10 @@ def main():
                      "Reload page and try again.")
             st.stop()
 
-        st.session_state.exchange_rates = get_exchange_rates()
+        st.session_state.exchange_rates = get_exchange_rates(
+            *get_min_max_dates(st.session_state.budget))
+        st.session_state.latest_exchange_rates = get_exchange_rates_latest()
+
         gmt_plus_4 = datetime.timezone(datetime.timedelta(hours=4))
         now_gmt4 = datetime.datetime.now(gmt_plus_4)
 
