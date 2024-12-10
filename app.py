@@ -736,13 +736,6 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
         start_date-pd.to_timedelta("1D"))["savings"]
     init_savings = st.session_state.modified_budget["init"].loc[1:, :].copy()
 
-    for df in (savings, savings_prev, init_savings):
-        df["converted_amount"] = df.apply(
-            get_conversion_rate,
-            axis=1,
-            target_currency=st.session_state.target_currency,
-            exchange_rates=st.session_state.latest_exchange_rates)
-
     # add summed savings from previous periods to st.session_state.modified_budget["init"]
     savings_prev_sum = (
         savings_prev[["category", "amount", "currency", "converted_amount"]]
@@ -765,6 +758,12 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
         converted_amount=result.converted_amount_x + result.converted_amount_y,
     )[["field", "amount", "currency", "converted_amount"]]
 
+    init_savings["converted_amount"] = init_savings.apply(
+        get_conversion_rate,
+        axis=1,
+        target_currency=st.session_state.target_currency,
+        exchange_rates=st.session_state.latest_exchange_rates)
+
     zeros_df = pd.DataFrame(
         [{"date": start_date-pd.to_timedelta("1D"), "category": category,
           "amount": 0, "converted_amount": 0}
@@ -773,6 +772,8 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
 
     savings["converted_amount"] = savings.groupby(
         "category", observed=True)["converted_amount"].cumsum()
+    savings["amount"] = savings.groupby(
+        "category", observed=True)["amount"].cumsum()
     full_date_range = pd.date_range(start=start_date,
                                     end=end_date, freq="1D")
     savings = savings.set_index("date")
