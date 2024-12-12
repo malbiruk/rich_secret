@@ -17,18 +17,20 @@ def _create_array_dict(data, category_col, data_col,
         array_dict[f"x_{category}"] = data[data[category_col] == category][data_col]
         array_dict[f"y_{category}"] = data[data[category_col] == category]["count"]
         if normalize_each:
-            current_area = np.trapz(array_dict[f"y_{category}"], array_dict[f"x_{category}"])
+            current_area = np.trapz(array_dict[f"y_{category}"].abs(), array_dict[f"x_{category}"])
             normalization_factor = target_area / current_area if current_area > 0 else 1
-            normalized_y = array_dict[f"y_{category}"] * normalization_factor
-            array_dict[f"y_{category}_normalized"] = normalized_y
+            normalized_y = array_dict[f"y_{category}"].abs() * normalization_factor
+            array_dict[f"y_{category}_normalized"] = normalized_y * \
+                np.sign(array_dict[f"y_{category}"])
             array_dict[f"{category}_norm_factor"] = normalization_factor
             max_y_normalized = max(max_y_normalized, normalized_y.max())
 
         else:
-            min_count = data["count"].min()
-            max_count = data["count"].max()
-            array_dict[f"y_{category}_normalized"] = (array_dict[f"y_{category}"] - min_count) \
-                / (max_count - min_count) * scaling_factor
+            min_count = data["count"].abs().min()
+            max_count = data["count"].abs().max()
+            array_dict[f"y_{category}_normalized"] = (
+                (array_dict[f"y_{category}"].abs() - min_count)
+                / (max_count - min_count) * scaling_factor) * np.sign(array_dict[f"y_{category}"])
             array_dict[f"{category}_norm_factor"] = (
                 (scaling_factor / (max_count - min_count))
                 - (min_count * scaling_factor / (max_count - min_count)))
