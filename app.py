@@ -954,7 +954,7 @@ def trends_plot(aggregate_by, hide_fixed, start_date, end_date):
 
 
 def restart_button():
-    if st.button("⟳", help="Clear cache and restart"):
+    if st.button("⟳", help="Update spreadsheet data and exchange rates"):
         st.session_state.first_run = True
         st.cache_data.clear()
         st.rerun()
