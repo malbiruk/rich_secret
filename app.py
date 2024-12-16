@@ -826,9 +826,14 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
                     currency[column] = currency[column].cat.add_categories(i)
                 currency[column] = currency[column].fillna(i)
 
-    plot_df_init = plot_df_init.loc[:, plot_df_init.sum().sort_values(ascending=True).index]
-    true_amount = true_amount.loc[:, plot_df_init.sum().sort_values(ascending=True).index]
-    currency = currency.loc[:, plot_df_init.sum().sort_values(ascending=True).index].bfill()
+    last_row = plot_df_init.tail(1).T
+    ordered_columns = last_row.sort_values(
+        by=last_row.columns.tolist()[0],
+        ascending=True).index
+
+    plot_df_init = plot_df_init.loc[:, ordered_columns]
+    true_amount = true_amount.loc[:, ordered_columns]
+    currency = currency.loc[:, ordered_columns].bfill()
 
     plot_df_init = plot_df_init.resample(freq).last()
     true_amount = true_amount.resample(freq).last()
@@ -965,7 +970,7 @@ def extract_sheet_id(url):
     return match.group(1) if match else None
 
 
-@ st.dialog("Input Google Sheets link")
+@st.dialog("Input Google Sheets link")
 def request_google_doc_link():
     link = st.text_input(
         "Link to the Google Sheets with budget",
