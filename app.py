@@ -374,7 +374,7 @@ def stats(mode, start_date, end_date):
         else:
             percentage = (
                 None if prev_period_stats["_".join(metric_name.lower().split())] == 0
-                else round(delta / prev_period_stats["_".join(metric_name.lower().split())]*100))
+                else round(delta / np.abs(prev_period_stats["_".join(metric_name.lower().split())])*100))
             percentage_str = (
                 "" if percentage is None
                 else f" (+{percentage}%)" if percentage > 0 else f" ({percentage}%)")
@@ -405,13 +405,13 @@ def stats(mode, start_date, end_date):
     if deltas["actual_weekly_spend"] is not None:
         percentage = (
             None if prev_period_stats["actual_weekly_spend"] == 0 or np.isnan(prev_period_stats["actual_weekly_spend"])
-            else round(deltas["actual_weekly_spend"] / prev_period_stats["actual_weekly_spend"]*100))
+            else round(deltas["actual_weekly_spend"] / np.abs(prev_period_stats["actual_weekly_spend"])*100))
         percentage_str_actual = (
             "" if percentage is None
             else f" (+{percentage}%)" if percentage > 0 else f" ({percentage}%)")
         percentage = (
             None if prev_period_stats["can_spend_weekly"] == 0 or np.isnan(prev_period_stats["can_spend_weekly"])
-            else round(deltas["can_spend_weekly"] / prev_period_stats["can_spend_weekly"]*100))
+            else round(deltas["can_spend_weekly"] / np.abs(prev_period_stats["can_spend_weekly"])*100))
         percentage_str_allowance = (
             "" if percentage is None
             else f" (+{percentage}%)" if percentage > 0 else f" ({percentage}%)")
