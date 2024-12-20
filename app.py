@@ -776,7 +776,13 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
         "category", observed=True)["amount"].cumsum()
     full_date_range = pd.date_range(start=start_date,
                                     end=end_date, freq="1D")
-    savings = savings.set_index("date")
+
+    savings = (savings.drop(columns="name")
+               .groupby(["date", "category", "currency"], as_index=False)
+               .tail(1)
+               .set_index("date"))
+    savings = pd.concat([zeros_df.set_index("date"), savings[savings["converted_amount"] != 0]])
+
     plot_df_init = (savings  # noqa: PD010
                .pivot(columns="category", values="converted_amount")
                .reindex(full_date_range)
