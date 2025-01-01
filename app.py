@@ -97,18 +97,32 @@ def get_historical_conversion_rate(row, target_currency: str, historical_rates: 
     return None  # Missing currency in rates
 
 
+# @st.cache_data
+# def convert_amounts_to_target_currency(
+#         budget_sheets: dict[str, pd.DataFrame],
+#         target_currency: str,
+#         historical_rates: dict[str, dict[str, float]]) -> dict[str, pd.DataFrame]:
+#     for df in budget_sheets.values():
+#         if "amount" in df.columns and "currency" in df.columns:
+#             df["converted_amount"] = df.apply(
+#                 get_historical_conversion_rate,
+#                 axis=1,
+#                 target_currency=target_currency,
+#                 historical_rates=historical_rates)
+#     return budget_sheets
+
 @st.cache_data
 def convert_amounts_to_target_currency(
         budget_sheets: dict[str, pd.DataFrame],
         target_currency: str,
-        historical_rates: dict[str, dict[str, float]]) -> dict[str, pd.DataFrame]:
+        exchange_rates: dict[str, float]) -> dict[str, pd.DataFrame]:
     for df in budget_sheets.values():
         if "amount" in df.columns and "currency" in df.columns:
             df["converted_amount"] = df.apply(
-                get_historical_conversion_rate,
+                get_conversion_rate,
                 axis=1,
                 target_currency=target_currency,
-                historical_rates=historical_rates)
+                exchange_rates=exchange_rates)
     return budget_sheets
 
 
@@ -124,15 +138,16 @@ def filter_sheets_by_date_range(
     return budget_sheets
 
 
-@st.cache_data
-def get_exchange_rates(start_date: str, end_date: str):
-    response = requests.get(
-        f"https://api.fxratesapi.com/timeseries?start_date={start_date}&end_date={end_date}")
-    exchange_rates = response.json()["rates"]
-    for date in exchange_rates:
-        exchange_rates[date]["USDT"] = 1
-    return exchange_rates
-
+# @st.cache_data
+# def get_exchange_rates(start_date: str, end_date: str):
+#     response = requests.get(
+#         f"https://api.fxratesapi.com/timeseries?api_key={st.secrets['fxrates_api']}"
+#         f"&start_date={start_date}&end_date={end_date}")
+#     exchange_rates = response.json()["rates"]
+#     for date in exchange_rates:
+#         exchange_rates[date]["USDT"] = 1
+#     return exchange_rates
+#
 
 @st.cache_data
 def get_exchange_rates_latest():
@@ -340,7 +355,7 @@ def stats(mode, start_date, end_date):
         prev_period = get_previous_period(start_date, end_date, mode)
         prev_modified_budget = filter_sheets_by_date_range(st.session_state.budget, *prev_period)
         prev_modified_budget = convert_amounts_to_target_currency(
-            prev_modified_budget, st.session_state.target_currency, st.session_state.exchange_rates)
+            prev_modified_budget, st.session_state.target_currency, st.session_state.latest_exchange_rates)
         prev_period_stats = calculate_stats(prev_modified_budget, *prev_period)
 
         deltas = {
@@ -778,7 +793,7 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
                                     end=end_date, freq="1D")
 
     savings = (savings.drop(columns="name")
-               .groupby(["date", "category", "currency"], as_index=False)
+               .groupby(["date", "category", "currency"], as_index=False, observed=False)
                .tail(1)
                .set_index("date"))
     savings = pd.concat([zeros_df.set_index("date"), savings[savings["converted_amount"] != 0]])
@@ -1037,8 +1052,8 @@ def main():
                      "Reload page and try again.")
             st.stop()
 
-        st.session_state.exchange_rates = get_exchange_rates(
-            *get_min_max_dates(st.session_state.budget))
+        # st.session_state.exchange_rates = get_exchange_rates(
+        #     *get_min_max_dates(st.session_state.budget))
         st.session_state.latest_exchange_rates = get_exchange_rates_latest()
 
         gmt_plus_4 = datetime.timezone(datetime.timedelta(hours=4))
@@ -1061,7 +1076,7 @@ def main():
         st.session_state.budget = convert_amounts_to_target_currency(
             st.session_state.budget,
             st.session_state.target_currency,
-            st.session_state.exchange_rates)
+            st.session_state.latest_exchange_rates)
         st.session_state.modified_budget = filter_sheets_by_date_range(
             st.session_state.budget, start_date, end_date)
 
