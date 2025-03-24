@@ -1,0 +1,11 @@
+services:
+  telegram-bot:
+    build: .
+    container_name: telegram-bot
+    restart: always
+    networks:
+      - bot-network
+
+networks:
+  bot-network:
+    driver: bridge
