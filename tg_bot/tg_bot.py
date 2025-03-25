@@ -3,6 +3,7 @@ This module creates a telegram bot which parses SMS messages about transactions 
 passed to it and automatically updates the user's budgetting google sheet used in Rich Secret app.
 """
 
+import json
 import os
 import re
 from datetime import datetime
@@ -110,12 +111,24 @@ def update_sheet(sheet: gspread.spreadsheet.Spreadsheet, transactions: list[dict
     return len(new_income_rows) + len(new_expenses_rows)
 
 
+class AuthorizationError(Exception):
+    pass
+
+
+def check_authorization(update):
+    if authorized_chats := os.getenv("AUTHORIZED_CHATS"):
+        authorized_chats = json.loads(authorized_chats)
+        if update.message.chat_id not in [int(chat_id) for chat_id in authorized_chats]:
+            raise AuthorizationError("You are not authorized to use this bot")
+
+
 async def bot_respond(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,  # noqa: ARG001
     sheet: gspread.spreadsheet.Spreadsheet,
 ) -> None:
     try:
+        check_authorization(update)
         transactions = parse_user_message(update.message.text)
         if transactions[0]["amount"]:
             n_transactions = update_sheet(sheet, transactions)
@@ -135,6 +148,7 @@ async def bot_respond(
     except Exception as e:
         await update.message.reply_text(
             text=f"Encountered an error:\n*{e!s}*",
+            parse_mode="MarkdownV2",
         )
 
 
