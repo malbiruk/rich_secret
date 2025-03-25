@@ -21,7 +21,7 @@ from plotly.subplots import make_subplots
 import one_light_template  # noqa: F401
 from ridgeline_plot import color_to_rgb, ridgeline
 
-load_dotenv()
+load_dotenv("tg_bot/.env")
 
 pio.templates.default = "one_light"
 
@@ -160,7 +160,7 @@ def get_conversion_rate(row, target_currency: str, exchange_rates: dict[str, flo
 def initialize_session_state():
     if "google_doc_id" not in st.session_state:
         sheets_link = os.getenv("SHEETS_LINK")
-        st.session_state.google_doc_id = extract_sheet_id(sheets_link)
+        st.session_state.google_doc_id = extract_sheet_id(sheets_link) if sheets_link else None
     if "first_run" not in st.session_state:
         st.session_state.first_run = True
     if "budget" not in st.session_state:
