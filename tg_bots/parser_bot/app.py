@@ -155,7 +155,7 @@ async def bot_respond(
 def main():
     sheet = get_sheet(os.getenv("SHEETS_LINK"))
 
-    application = ApplicationBuilder().token(os.getenv("API_TOKEN")).build()
+    application = ApplicationBuilder().token(os.getenv("PARSER_API_TOKEN")).build()
 
     handler = MessageHandler(None, partial(bot_respond, sheet=sheet))
     application.add_handler(handler)

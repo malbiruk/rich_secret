@@ -9,4 +9,4 @@ RUN pip install --no-cache-dir python-telegram-bot python-dotenv gspread
 
 COPY . .
 
-CMD ["python", "tg_bot.py"]
+CMD ["python", "app.py"]
