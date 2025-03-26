@@ -1,0 +1,11 @@
+services:
+  parser-telegram-bot:
+    build: .
+    container_name: parser-telegram-bot
+    restart: always
+    networks:
+      - parser-bot-network
+
+networks:
+  bot-network:
+    driver: bridge

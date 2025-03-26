@@ -1,7 +1,9 @@
-plotly
-streamlit
-scipy
-pandas
 millify
 openpyxl
+pandas
+plotly
+python-dotenv
+python-telegram-bot
+scipy
+streamlit
 webcolors

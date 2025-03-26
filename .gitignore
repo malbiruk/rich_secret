@@ -1,3 +1,6 @@
 __pycache__
 .streamlit/secrets.toml
 test*
+.env
+*.toml
+*.json
