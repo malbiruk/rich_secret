@@ -52,7 +52,7 @@
    git clone https://github.com/yourusername/rich-secret.git
    cd rich-secret
    ```
-2. Install dependencies:
+2. Install dependencies (Python 3.12):
   ```bash
   pip install -r requirements.txt
   ```
@@ -67,3 +67,8 @@
   streamlit run app.py
   ```
 5. Access the app at `http://localhost:8501`.
+
+P.S. For local use you can set up a Google Sheets link in `.env`:
+```
+SHEETS_LINK = https://docs.google.com/spreadsheets/d/your_sheets_id/edit?usp=sharing
+```
