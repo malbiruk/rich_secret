@@ -21,7 +21,7 @@ from plotly.subplots import make_subplots
 import one_light_template  # noqa: F401
 from ridgeline_plot import color_to_rgb, ridgeline
 
-load_dotenv("tg_bot/.env")
+load_dotenv()
 
 pio.templates.default = "one_light"
 
