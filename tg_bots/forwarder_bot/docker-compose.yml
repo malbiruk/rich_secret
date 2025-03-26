@@ -1,10 +1,10 @@
 services:
-  parser-telegram-bot:
+  forwarder-telegram-bot:
     build: .
-    container_name: parser-telegram-bot
+    container_name: forwarder-telegram-bot
     restart: always
     networks:
-      - parser-bot-network
+      - forwarder-bot-network
 
 networks:
   bot-network:
