@@ -173,14 +173,14 @@ async def bot_respond(
             if len(transactions) > 1:
                 text = (
                     rf"Added *{n_transactions}* transactions to [sheet]({os.getenv('SHEETS_LINK')})\."
-                    f"\nMost recent transaction was made\non *{most_recent_date.strftime('%d %b, %Y')}*"
+                    f"\nThe most recent transaction was made\non *{most_recent_date.strftime('%d %b, %Y')}*"
                 )
             elif len(transactions) == 1:
                 transaction["date"] = transaction["date"].strftime("%d %b, %Y")
                 text = (
                     rf"Added *1* transaction to [sheet]({os.getenv('SHEETS_LINK')}):"
                     f"\n```json\n{json.dumps(transaction, indent=2)}\n```"
-                    f"\nMost recent transaction was made\non *{most_recent_date.strftime('%d %b, %Y')}*"
+                    f"\nThe most recent transaction was made\non *{most_recent_date.strftime('%d %b, %Y')}*"
                 )
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
