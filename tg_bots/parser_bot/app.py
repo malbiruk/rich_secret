@@ -18,10 +18,20 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filte
 load_dotenv()
 
 
+LOOKS_LIKE = {
+    "Restaurants": ["restaurant"],
+    "Transport": ["hala ride"],
+}
+
+
 def guess_category(name: str) -> str:
-    if "restaurant" in name.lower():
-        return "Restaurants"
-    return ""
+    name_lower = name.lower()
+
+    for category, keywords in LOOKS_LIKE.items():
+        if any(keyword in name_lower for keyword in keywords):
+            return category
+
+    return "Other"
 
 
 def parse_transaction(transaction: str) -> dict[str]:
