@@ -8,6 +8,7 @@ import os
 import re
 from datetime import datetime
 from functools import partial
+from pathlib import Path
 
 import gspread
 import pytz
@@ -17,11 +18,8 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filte
 
 load_dotenv()
 
-
-LOOKS_LIKE = {
-    "Restaurants": ["restaurant"],
-    "Transport": ["hala ride"],
-}
+with Path("categories.json").open() as f:
+    LOOKS_LIKE = json.load(f)
 
 
 def guess_category(name: str) -> str:
