@@ -1,11 +1,5 @@
 {
-  "Restaurants": [
-    "restaurant"
-  ],
-  "Transport": [
-    "hala ride"
-  ],
-  "Fixed": [
-    "careem plus"
-  ]
+  "Restaurants": ["restaurant", "careem food"],
+  "Transport": ["hala ride"],
+  "Fixed": ["careem plus"]
 }
