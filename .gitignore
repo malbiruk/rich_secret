@@ -3,4 +3,4 @@ __pycache__
 test*
 .env
 *.toml
-*.json
+service_account.json
