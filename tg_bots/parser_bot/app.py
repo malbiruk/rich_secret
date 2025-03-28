@@ -19,13 +19,13 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filte
 load_dotenv()
 
 with Path("categories.json").open() as f:
-    LOOKS_LIKE = json.load(f)
+    CATEGORIES = json.load(f)
 
 
 def guess_category(name: str) -> str:
     name_lower = name.lower()
 
-    for category, keywords in LOOKS_LIKE.items():
+    for category, keywords in CATEGORIES.items():
         if any(keyword in name_lower for keyword in keywords):
             return category
 
@@ -33,13 +33,17 @@ def guess_category(name: str) -> str:
 
 
 def parse_transaction(transaction: str) -> dict[str]:
+    income_patterns = [
+        "has been credited",
+        "on your account",
+        "has been deposited",
+    ]
+
     transaction_type = (
-        "income"
-        if "has been credited" in transaction or "on your account" in transaction
-        else "expense"
+        "income" if any(pattern in transaction for pattern in income_patterns) else "expense"
     )
 
-    amount_pattern = r"([A-Z]{3})\s?([\d,]+\.\d{2})"
+    amount_pattern = r"([A-Z]{3})\s?([\d,]+(?:\.\d{2})?)"
     amount_match = re.search(amount_pattern, transaction)
 
     if amount_match:
