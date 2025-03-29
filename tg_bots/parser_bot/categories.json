@@ -1,5 +1,6 @@
 {
   "Restaurants": ["restaurant", "careem food"],
+  "Groceries": ["deliveroo"],
   "Transport": ["hala ride"],
   "Fixed": ["careem plus"]
 }
