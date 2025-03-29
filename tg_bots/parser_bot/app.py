@@ -43,7 +43,7 @@ def parse_transaction(transaction: str) -> dict[str]:
         "income" if any(pattern in transaction for pattern in income_patterns) else "expense"
     )
 
-    amount_pattern = r"([A-Z]{3})\s?([\d,]+(?:\.\d{2})?)"
+    amount_pattern = r"((?!XXX)[A-Z]{3})\s?([\d,]+(?:\.\d{2})?)"
     amount_match = re.search(amount_pattern, transaction)
 
     if amount_match:
