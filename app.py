@@ -757,7 +757,12 @@ def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
     expenses["converted_amount"] *= -1  # Expenses reduce balance
     savings["converted_amount"] *= -1  # Savings reduce balance
 
-    all_data = pd.concat([expenses, income, savings])
+    dataframes_to_concat = [df for df in [expenses, income, savings] if not df.empty]
+
+    if dataframes_to_concat:
+        all_data = pd.concat(dataframes_to_concat)
+    else:
+        all_data = pd.DataFrame(columns=expenses.columns)
 
     # aggregate data by day and type
     all_data = (
