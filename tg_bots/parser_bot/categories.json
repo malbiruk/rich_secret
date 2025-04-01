@@ -2,5 +2,6 @@
   "Restaurants": ["restaurant", "careem food"],
   "Groceries": ["deliveroo", "careem quik"],
   "Transport": ["hala ride"],
-  "Fixed": ["careem plus"]
+  "Fixed": ["careem plus"],
+  "Entertainment": ["steam"]
 }
