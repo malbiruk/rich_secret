@@ -1,6 +1,6 @@
 {
-  "Restaurants": ["restaurant", "careem food"],
-  "Groceries": ["deliveroo", "careem quik"],
+  "Restaurants": ["restaurant", "careem food", "bkk station"],
+  "Groceries": ["deliveroo", "careem quik", "carrefour", "grandiose"],
   "Transport": ["hala ride"],
   "Fixed": ["careem plus"],
   "Entertainment": ["steam"]
