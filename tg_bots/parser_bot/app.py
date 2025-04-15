@@ -33,6 +33,9 @@ def guess_category(name: str) -> str:
 
 
 def parse_transaction(transaction: str) -> dict[str]:
+    if " OTP " in transaction:
+        return None
+
     income_patterns = [
         "has been credited",
         "on your account",
