@@ -75,7 +75,7 @@ SHEETS_LINK = https://docs.google.com/spreadsheets/d/your_sheets_id/edit?usp=sha
 
 ## App screenshot
 
-It features custom plotly figures such as lollipop plots, ridgeline plot with data dots,
+It features custom plotly figures such as dumbbell plots, ridgeline plot with data dots,
 shifted lineplot with lollipops, stacked area:
 
 ![App screenshot](img/screenshot.png)
