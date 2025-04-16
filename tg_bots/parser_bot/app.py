@@ -21,6 +21,8 @@ load_dotenv()
 with Path("categories.json").open() as f:
     CATEGORIES = json.load(f)
 
+SALARY = os.getenv("SALARY")
+
 
 def guess_category(name: str) -> str:
     name_lower = name.lower()
@@ -134,7 +136,7 @@ def update_sheet(sheet: gspread.spreadsheet.Spreadsheet, transactions: list[dict
             if row not in expenses_rows:
                 new_expenses_rows.append(row)
         else:
-            if transaction["amount"] == 16000:
+            if transaction["amount"] == SALARY:
                 transaction["category"] = "Paycheck"
                 transaction["name"] = "Paycheck"
             row = convert_transaction_to_row(transaction, income_rows[0])
