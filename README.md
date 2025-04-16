@@ -79,3 +79,11 @@ It features custom plotly figures such as dumbbell plots, ridgeline plot with da
 shifted lineplot with lollipops, stacked area:
 
 ![App screenshot](img/screenshot.png)
+
+## Optional Automation: SMS to Google Sheets (Personal Setup)
+In addition to the Streamlit dashboard, Rich Secret includes a personal automation pipeline:
+
+- SMS Forwarder App on phone: detects incoming bank messages and forwards them to a private Telegram channel (using `tg_bots/forwarder_bot`).
+- Telegram Bot inside the channel (`tg_bots/parser_bot`): parses transaction details from each SMS and writes them into the linked Google Sheets template used by the app.
+
+This automation is currently tailored to a specific bank’s SMS format and is used privately. If you’re interested in a similar setup, feel free to reach out or adapt it for your own use case.
