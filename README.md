@@ -72,3 +72,10 @@ P.S. For local use you can set up a Google Sheets link in `.env`:
 ```
 SHEETS_LINK = https://docs.google.com/spreadsheets/d/your_sheets_id/edit?usp=sharing
 ```
+
+## App screenshot
+
+It features custom plotly figures such as lollipop plots, ridgeline plot with data dots,
+shifted lineplot with lollipops, stacked area:
+
+![App screenshot](img/screenshot.png)
