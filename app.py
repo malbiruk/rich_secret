@@ -48,7 +48,9 @@ def get_data(google_doc_id: str) -> dict[str, pd.DataFrame]:
         "savings",
     )
 
-    budget_sheets["monthly_plan"]["type"] = budget_sheets["monthly_plan"]["type"].str.lower()
+    budget_sheets["monthly_plan"]["type"] = budget_sheets["monthly_plan"][
+        "type"
+    ].str.lower()
 
     for sheet, columns in categorical_columns.items():
         for column in columns:
@@ -63,10 +65,14 @@ def get_data(google_doc_id: str) -> dict[str, pd.DataFrame]:
 def get_previous_period(start_date, end_date, mode):
     if mode == "Month":
         prev_start_date = (start_date - pd.DateOffset(months=1)).replace(day=1)
-        prev_end_date = (prev_start_date + pd.DateOffset(months=1)) - pd.Timedelta(days=1)
+        prev_end_date = (prev_start_date + pd.DateOffset(months=1)) - pd.Timedelta(
+            days=1
+        )
     elif mode == "Quarter":
         prev_start_date = (start_date - pd.DateOffset(months=3)).replace(day=1)
-        prev_end_date = (prev_start_date + pd.DateOffset(months=3)) - pd.Timedelta(days=1)
+        prev_end_date = (prev_start_date + pd.DateOffset(months=3)) - pd.Timedelta(
+            days=1
+        )
     elif mode == "Year":
         prev_start_date = start_date - pd.DateOffset(years=1)
         prev_end_date = end_date - pd.DateOffset(years=1)
@@ -93,7 +99,11 @@ def get_historical_conversion_rate(
             row_date = pd.to_datetime(row_date).tz_localize(None)
 
         closest_date_str = max(
-            (date for date in historical_rates if pd.Timestamp(date).tz_localize(None) <= row_date),
+            (
+                date
+                for date in historical_rates
+                if pd.Timestamp(date).tz_localize(None) <= row_date
+            ),
             default=None,
         )
 
@@ -149,10 +159,14 @@ def get_exchange_rates_latest():
     return exchange_rates
 
 
-def get_conversion_rate(row, target_currency: str, exchange_rates: dict[str, float]) -> float:
+def get_conversion_rate(
+    row, target_currency: str, exchange_rates: dict[str, float]
+) -> float:
     current_currency = row["currency"]
     if current_currency in exchange_rates and target_currency in exchange_rates:
-        exchange_rate = exchange_rates[target_currency] / exchange_rates[current_currency]
+        exchange_rate = (
+            exchange_rates[target_currency] / exchange_rates[current_currency]
+        )
         return row["amount"] * exchange_rate
     return None
 
@@ -160,7 +174,9 @@ def get_conversion_rate(row, target_currency: str, exchange_rates: dict[str, flo
 def initialize_session_state():
     if "google_doc_id" not in st.session_state:
         sheets_link = os.getenv("SHEETS_LINK")
-        st.session_state.google_doc_id = extract_sheet_id(sheets_link) if sheets_link else None
+        st.session_state.google_doc_id = (
+            extract_sheet_id(sheets_link) if sheets_link else None
+        )
     if "first_run" not in st.session_state:
         st.session_state.first_run = True
     if "budget" not in st.session_state:
@@ -243,7 +259,9 @@ def settings(budget_sheets, now_gmt4):
                 min_value=1900,
                 max_value=2100,
             )
-            quarter_start_month = {"Q1": 1, "Q2": 4, "Q3": 7, "Q4": 10}[selected_quarter]
+            quarter_start_month = {"Q1": 1, "Q2": 4, "Q3": 7, "Q4": 10}[
+                selected_quarter
+            ]
             start_date = datetime.date(selected_year, quarter_start_month, 1)
             end_date = (start_date + datetime.timedelta(days=92)).replace(
                 day=1,
@@ -265,9 +283,9 @@ def settings(budget_sheets, now_gmt4):
 
     start_date = pd.to_datetime(start_date).floor("D")
     end_date = pd.to_datetime(end_date).floor("D")
-    currencies = budget_sheets["categories"][budget_sheets["categories"]["type"] == "Currency"][
-        "category"
-    ].unique()
+    currencies = budget_sheets["categories"][
+        budget_sheets["categories"]["type"] == "Currency"
+    ]["category"].unique()
     target_currency = col3.selectbox("Currency:", currencies, index=0)
 
     col1, col2, col3 = st.columns([0.5, 2, 0.5])
@@ -339,16 +357,17 @@ def calculate_stats(budget_data, start_date, end_date):
         "converted_amount"
     ].sum()
     fixed_expenses = monthly_plan_data[
-        (monthly_plan_data["type"] == "expense") & (monthly_plan_data["category"] == "Fixed")
+        (monthly_plan_data["type"] == "expense")
+        & (monthly_plan_data["category"] == "Fixed")
     ]["converted_amount"].sum()
     planned_savings = monthly_plan_data[monthly_plan_data["type"] == "savings"][
         "converted_amount"
     ].sum()
 
     n_weeks = ((budget_data["expenses"]["date"].max() - start_date).days + 1) / 7
-    fixed_actual_expenses = budget_data["expenses"][budget_data["expenses"]["category"] == "Fixed"][
-        "converted_amount"
-    ].sum()
+    fixed_actual_expenses = budget_data["expenses"][
+        budget_data["expenses"]["category"] == "Fixed"
+    ]["converted_amount"].sum()
     actual_weekly_spend = (total_expenses - fixed_actual_expenses) / n_weeks
 
     n_weeks = ((end_date - start_date).days + 1) / 7
@@ -366,7 +385,9 @@ def calculate_stats(budget_data, start_date, end_date):
 def stats(mode, start_date, end_date):
     last_col_width = 1.5 if st.session_state.target_currency == "BTC" else 1.1
     cols = st.columns([1, 1, 1, 1, last_col_width])
-    this_period_stats = calculate_stats(st.session_state.modified_budget, start_date, end_date)
+    this_period_stats = calculate_stats(
+        st.session_state.modified_budget, start_date, end_date
+    )
 
     precision = (
         5
@@ -378,7 +399,9 @@ def stats(mode, start_date, end_date):
 
     if mode != "Custom":
         prev_period = get_previous_period(start_date, end_date, mode)
-        prev_modified_budget = filter_sheets_by_date_range(st.session_state.budget, *prev_period)
+        prev_modified_budget = filter_sheets_by_date_range(
+            st.session_state.budget, *prev_period
+        )
         prev_modified_budget = convert_amounts_to_target_currency(
             prev_modified_budget,
             st.session_state.target_currency,
@@ -406,7 +429,13 @@ def stats(mode, start_date, end_date):
             "can_spend_weekly": None,
         }
 
-    metric_names = ["Balance", "Income", "Expenses", "Savings", "Weekly Spend / Allowance"]
+    metric_names = [
+        "Balance",
+        "Income",
+        "Expenses",
+        "Savings",
+        "Weekly Spend / Allowance",
+    ]
     for col, metric_name, this_period_value, delta in zip(
         cols[:4],
         metric_names[:4],
@@ -421,7 +450,9 @@ def stats(mode, start_date, end_date):
                 None
                 if prev_period_stats["_".join(metric_name.lower().split())] == 0
                 else round(
-                    delta / np.abs(prev_period_stats["_".join(metric_name.lower().split())]) * 100,
+                    delta
+                    / np.abs(prev_period_stats["_".join(metric_name.lower().split())])
+                    * 100,
                 )
             )
             percentage_str = (
@@ -435,7 +466,9 @@ def stats(mode, start_date, end_date):
             metric_name,
             millify(this_period_value, precision=precision),
             delta=(
-                delta if delta is None else millify(delta, precision=precision) + percentage_str
+                delta
+                if delta is None
+                else millify(delta, precision=precision) + percentage_str
             ),
             delta_color="inverse" if metric_name == "Expenses" else "normal",
             help=(
@@ -492,7 +525,9 @@ def stats(mode, start_date, end_date):
             if prev_period_stats["can_spend_weekly"] == 0
             or np.isnan(prev_period_stats["can_spend_weekly"])
             else round(
-                deltas["can_spend_weekly"] / np.abs(prev_period_stats["can_spend_weekly"]) * 100,
+                deltas["can_spend_weekly"]
+                / np.abs(prev_period_stats["can_spend_weekly"])
+                * 100,
             )
         )
         percentage_str_allowance = (
@@ -521,12 +556,16 @@ def stats(mode, start_date, end_date):
     )
 
 
-def create_plot_data_actual_vs_planned(plan_data, data_type, *, hide_fixed: bool = False):
+def create_plot_data_actual_vs_planned(
+    plan_data, data_type, *, hide_fixed: bool = False
+):
     plan_data = plan_data[plan_data["type"] == data_type].copy()
     actual_data = st.session_state.modified_budget[data_type].copy()
     if data_type == "expenses" and hide_fixed:
         if "Fixed" in actual_data["category"].cat.categories:
-            actual_data["category"] = actual_data["category"].cat.remove_categories("Fixed")
+            actual_data["category"] = actual_data["category"].cat.remove_categories(
+                "Fixed"
+            )
         if "Fixed" in plan_data["category"].cat.categories:
             plan_data["category"] = plan_data["category"].cat.remove_categories("Fixed")
     planned_sums = (
@@ -560,8 +599,16 @@ def add_actual_vs_planned_subplot(
     if plot_data.empty:
         fig.add_annotation(
             text="No data to show",
-            xref="x1" if row == 1 and col == 1 else "x2" if row == 1 and col == 2 else "x3",
-            yref="y1" if row == 1 and col == 1 else "y2" if row == 1 and col == 2 else "y3",
+            xref="x1"
+            if row == 1 and col == 1
+            else "x2"
+            if row == 1 and col == 2
+            else "x3",
+            yref="y1"
+            if row == 1 and col == 1
+            else "y2"
+            if row == 1 and col == 2
+            else "y3",
             showarrow=False,
             name="nodata",
         )
@@ -570,11 +617,15 @@ def add_actual_vs_planned_subplot(
     for _ind, df_row in plot_data.iterrows():
         if swapped_colors:
             line_color = (
-                "#09ab3b" if df_row["actual_amount"] > df_row["planned_amount"] else "#ff2b2b"
+                "#09ab3b"
+                if df_row["actual_amount"] > df_row["planned_amount"]
+                else "#ff2b2b"
             )
         else:
             line_color = (
-                "#ff2b2b" if df_row["actual_amount"] > df_row["planned_amount"] else "#09ab3b"
+                "#ff2b2b"
+                if df_row["actual_amount"] > df_row["planned_amount"]
+                else "#09ab3b"
             )
         fig.add_trace(
             go.Scatter(
@@ -664,7 +715,9 @@ def actual_vs_planned_plot(hide_fixed):
     )
 
     fig = add_actual_vs_planned_subplot(fig, plot_data["expenses"], row=1, col=1)
-    fig = add_actual_vs_planned_subplot(fig, plot_data["income"], swapped_colors=True, row=1, col=2)
+    fig = add_actual_vs_planned_subplot(
+        fig, plot_data["income"], swapped_colors=True, row=1, col=2
+    )
     fig = add_actual_vs_planned_subplot(
         fig,
         plot_data["savings"],
@@ -784,7 +837,9 @@ def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
         - budget_data_all["savings"]["converted_amount"].sum()
     )
     daily_totals = all_data.groupby("date")["converted_amount"].sum().reset_index()
-    daily_totals["balance"] = initial_balance + daily_totals["converted_amount"].cumsum()
+    daily_totals["balance"] = (
+        initial_balance + daily_totals["converted_amount"].cumsum()
+    )
 
     # merge daily balances back into the transaction data
     all_data = all_data.merge(daily_totals[["date", "balance"]], on="date", how="left")
@@ -836,7 +891,10 @@ def add_balance_lineplot(aggregate_by, start_date, end_date, fig, row, col):
             fig.add_trace(
                 go.Scatter(
                     x=[row_data["date"], row_data["date"]],
-                    y=[row_data["balance"], row_data["balance"] + row_data["converted_amount"]],
+                    y=[
+                        row_data["balance"],
+                        row_data["balance"] + row_data["converted_amount"],
+                    ],
                     mode="lines",
                     legendgroup=data_type,
                     line=dict(color=color, width=0.5),
@@ -918,7 +976,9 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
         how="outer",
     )
 
-    result = merged_df.groupby(["field", "currency"], as_index=False, observed=True).agg(
+    result = merged_df.groupby(
+        ["field", "currency"], as_index=False, observed=True
+    ).agg(
         {
             "amount_x": "sum",
             "amount_y": "sum",
@@ -966,7 +1026,9 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
         .tail(1)
         .set_index("date")
     )
-    savings = pd.concat([zeros_df.set_index("date"), savings[savings["converted_amount"] != 0]])
+    savings = pd.concat(
+        [zeros_df.set_index("date"), savings[savings["converted_amount"] != 0]]
+    )
 
     plot_df_init = (
         savings.pivot(columns="category", values="converted_amount")  # noqa: PD010
@@ -1008,18 +1070,24 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
             for i in init_saving:
                 plot_df_init[column] = plot_df_init[column] + i
 
-            init_saving = init_savings.loc[init_savings["field"] == column, "amount"].to_numpy()
+            init_saving = init_savings.loc[
+                init_savings["field"] == column, "amount"
+            ].to_numpy()
             for i in init_saving:
                 true_amount[column] = true_amount[column] + i
 
-            init_currency = init_savings.loc[init_savings["field"] == column, "currency"].to_numpy()
+            init_currency = init_savings.loc[
+                init_savings["field"] == column, "currency"
+            ].to_numpy()
             for i in init_currency:
                 if i not in currency[column].cat.categories:
                     currency[column] = currency[column].cat.add_categories(i)
                 currency[column] = currency[column].fillna(i)
 
     last_row = plot_df_init.tail(1).T
-    ordered_columns = last_row.sort_values(by=last_row.columns.tolist()[0], ascending=True).index
+    ordered_columns = last_row.sort_values(
+        by=last_row.columns.tolist()[0], ascending=True
+    ).index
 
     plot_df_init = plot_df_init.loc[:, ordered_columns]
     true_amount = true_amount.loc[:, ordered_columns]
@@ -1062,7 +1130,12 @@ def add_savings_stacked_area(aggregate_by, start_date, end_date, fig, row, col):
                 mode="none" if len(plot_df) > 1 else "markers",
                 marker_color=pio.templates[pio.templates.default].layout.colorway[c],
                 fillcolor=f"rgba{
-                    (*color_to_rgb(pio.templates[pio.templates.default].layout.colorway[c]), 0.5)
+                    (
+                        *color_to_rgb(
+                            pio.templates[pio.templates.default].layout.colorway[c]
+                        ),
+                        0.5,
+                    )
                 }",
                 line_shape="spline",
                 hovertemplate=(
@@ -1110,8 +1183,12 @@ def trends_plot(aggregate_by, hide_fixed, start_date, end_date):
 
     expenses_data = st.session_state.modified_budget["expenses"].copy()
     if hide_fixed and "Fixed" in expenses_data["category"].cat.categories:
-        expenses_data["category"] = expenses_data["category"].cat.remove_categories("Fixed")
-    category_sums = expenses_data.groupby("category", observed=True)["converted_amount"].sum()
+        expenses_data["category"] = expenses_data["category"].cat.remove_categories(
+            "Fixed"
+        )
+    category_sums = expenses_data.groupby("category", observed=True)[
+        "converted_amount"
+    ].sum()
     sorted_categories = category_sums.sort_values().index
     n_categories = len(sorted_categories)
 
@@ -1182,7 +1259,9 @@ def trends_plot(aggregate_by, hide_fixed, start_date, end_date):
 
     fig.update_annotations(font=dict(size=18), yshift=10)
     fig.update_annotations(selector=dict(name="nodata"), font=dict(size=16))
-    fig.update_annotations(selector=dict(name="ytitles"), font=dict(size=14), xshift=-10)
+    fig.update_annotations(
+        selector=dict(name="ytitles"), font=dict(size=14), xshift=-10
+    )
     fig.update_xaxes(title=None, tickfont=dict(size=14))
     fig.update_yaxes(showline=False, tickfont=dict(size=14))
 
@@ -1248,7 +1327,9 @@ def get_min_max_dates(budget_sheets: dict[str, pd.DataFrame]) -> tuple[str, str]
             max_dates.append(df["date"].dropna().max())
 
     # Convert results to string in "YYYY-MM-DD" format
-    min_date_str = (pd.Series(min_dates).min() - pd.to_timedelta("1D")).strftime("%Y-%m-%d")
+    min_date_str = (pd.Series(min_dates).min() - pd.to_timedelta("1D")).strftime(
+        "%Y-%m-%d"
+    )
     max_date_str = (pd.Series(max_dates).max()).strftime("%Y-%m-%d")
 
     return min_date_str, max_date_str
@@ -1284,9 +1365,14 @@ def main():
         with col2:
             restart_button()
 
-        (st.session_state.target_currency, start_date, end_date, aggregate_by, mode, hide_fixed) = (
-            settings(st.session_state.budget, now_gmt4)
-        )
+        (
+            st.session_state.target_currency,
+            start_date,
+            end_date,
+            aggregate_by,
+            mode,
+            hide_fixed,
+        ) = settings(st.session_state.budget, now_gmt4)
 
         st.session_state.budget = convert_amounts_to_target_currency(
             st.session_state.budget,
