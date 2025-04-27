@@ -357,7 +357,7 @@ def calculate_stats(budget_data, start_date, end_date):
         "converted_amount"
     ].sum()
     fixed_expenses = monthly_plan_data[
-        (monthly_plan_data["type"] == "expense")
+        (monthly_plan_data["type"] == "expenses")
         & (monthly_plan_data["category"] == "Fixed")
     ]["converted_amount"].sum()
     planned_savings = monthly_plan_data[monthly_plan_data["type"] == "savings"][
