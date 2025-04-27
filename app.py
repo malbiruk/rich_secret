@@ -18,8 +18,8 @@ from dotenv import load_dotenv
 from millify import millify
 from plotly.subplots import make_subplots
 
-import one_light_template  # noqa: F401
-from ridgeline_plot import color_to_rgb, ridgeline
+from plots import one_light_template  # noqa: F401
+from plots.ridgeline import color_to_rgb, ridgeline
 
 load_dotenv()
 
