@@ -1,11 +1,6 @@
 services:
   forwarder-telegram-bot:
     build: .
+    env_file: .env
     container_name: forwarder-telegram-bot
     restart: always
-    networks:
-      - forwarder-bot-network
-
-networks:
-  bot-network:
-    driver: bridge

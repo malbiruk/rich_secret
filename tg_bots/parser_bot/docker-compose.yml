@@ -1,11 +1,6 @@
 services:
   parser-telegram-bot:
     build: .
+    env_file: .env
     container_name: parser-telegram-bot
     restart: always
-    networks:
-      - parser-bot-network
-
-networks:
-  bot-network:
-    driver: bridge
