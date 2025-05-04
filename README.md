@@ -2,7 +2,7 @@
 
 **Rich Secret** is a personal budgeting web application built using Streamlit. It helps you track, plan, and analyze your finances with ease, leveraging a Google Sheets template.
 
-[![Streamlit App](https://img.shields.io/badge/Streamlit-Live_App-brightgreen)](https://rich-se-cret.streamlit.app/)
+[![Streamlit App](https://img.shields.io/badge/Streamlit-Live_App-brightgreen)](https://richapp.streamlit.app/)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
