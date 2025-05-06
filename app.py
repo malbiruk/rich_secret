@@ -364,11 +364,31 @@ def calculate_stats(budget_data, start_date, end_date):
         "converted_amount"
     ].sum()
 
-    n_weeks = ((budget_data["expenses"]["date"].max() - start_date).days + 1) / 7
-    fixed_actual_expenses = budget_data["expenses"][
-        budget_data["expenses"]["category"] == "Fixed"
-    ]["converted_amount"].sum()
-    actual_weekly_spend = (total_expenses - fixed_actual_expenses) / n_weeks
+    today = pd.Timestamp.today().normalize()
+
+    # Get non-fixed expenses
+    non_fixed_expenses = budget_data["expenses"][
+        budget_data["expenses"]["category"] != "Fixed"
+    ]
+
+    if end_date >= today:  # Contains future dates (non-historical)
+        # Calculate last week's start date (7 days ago from today)
+        last_week_start = max(start_date, today - pd.Timedelta(days=7))
+
+        last_week_expenses = non_fixed_expenses[
+            non_fixed_expenses["date"] >= last_week_start
+        ]
+
+        actual_weekly_spend = last_week_expenses["converted_amount"].sum()
+    else:  # Fully historical data
+        fixed_actual_expenses = budget_data["expenses"][
+            budget_data["expenses"]["category"] == "Fixed"
+        ]["converted_amount"].sum()
+
+        n_weeks = max(
+            1, ((budget_data["expenses"]["date"].max() - start_date).days + 1) / 7
+        )
+        actual_weekly_spend = (total_expenses - fixed_actual_expenses) / n_weeks
 
     n_weeks = ((end_date - start_date).days + 1) / 7
     can_spend_weekly = (planned_income - fixed_expenses - planned_savings) / n_weeks
